@@ -80,9 +80,12 @@ design doc. Research therefore resolves the remaining *implementation-level* cho
 ## R5. Phone/email/ID-document normalization
 
 - **Decision**: email → trim + lowercase (whole address, documented simplification);
-  phone → Google libphonenumber, formatted E.164, with a default-region config per tenant
+  phone → Google libphonenumber, formatted E.164, with a default-region config
   (fallback: reject as malformed → `needs_review`, never guess); ID document → SHA-256 of
   `type:number` after trim/uppercase, stored hash-only; loyalty ID / external key → trim.
+  *v1 simplification*: the phone default region is one application-wide property
+  (`guestgraph.default-phone-region`, unset by default → only `+`-international numbers
+  match); a per-tenant column is a follow-up when tenants actually span regions.
 - **Rationale**: libphonenumber is the de-facto standard for E.164; hashing ID documents
   satisfies the constitution's data-minimization rule while still allowing exact matching.
 - **Alternatives considered**: hand-rolled phone parsing (rejected: national formats are a
@@ -137,8 +140,9 @@ design doc. Research therefore resolves the remaining *implementation-level* cho
 ## R9. Suspicious-match detection (review threshold)
 
 - **Decision**: At resolution time, for each candidate identifier match, count distinct
-  source records already carrying that normalized identifier value in the tenant. If the
-  count > `tenant.review_threshold` (default **10**), the candidate is not merged; a
+  source records carrying that normalized identifier value in the tenant — including the
+  record being resolved. If the total > `tenant.review_threshold` (default **10**), the
+  candidate is not merged; a
   `match_review` row is created (identifier, candidate record, target guest(s), reason).
   The ingested record still resolves via its *other*, non-suspicious identifiers, or gets a
   new guest.

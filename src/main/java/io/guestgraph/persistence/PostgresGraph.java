@@ -207,4 +207,24 @@ public class PostgresGraph implements GraphPort {
     return matchReviewRepo.existsByStatus(
         tenantId, sourceRecordId, candidateGuestId, ReviewStatus.PENDING);
   }
+
+  @Override
+  public void repointPendingReviews(UUID tenantId, UUID fromGuestId, UUID toGuestId) {
+    matchReviewRepo.repointPending(tenantId, fromGuestId, toGuestId);
+  }
+
+  @Override
+  public void cancelPendingReviews(UUID tenantId, UUID candidateGuestId) {
+    matchReviewRepo.deletePending(tenantId, candidateGuestId);
+  }
+
+  @Override
+  public Optional<MatchReview> findReview(UUID tenantId, UUID reviewId) {
+    return matchReviewRepo.findReview(tenantId, reviewId).map(mappers::toDomain);
+  }
+
+  @Override
+  public int decideReview(UUID tenantId, UUID reviewId, ReviewStatus newStatus, UUID eventId) {
+    return matchReviewRepo.decide(tenantId, reviewId, newStatus, Instant.now(), eventId);
+  }
 }

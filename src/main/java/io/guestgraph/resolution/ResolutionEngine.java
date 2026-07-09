@@ -9,8 +9,10 @@ import io.guestgraph.domain.NormalizedIdentifier;
 import io.guestgraph.domain.ReviewStatus;
 import io.guestgraph.domain.SourceRecord;
 import io.guestgraph.survivorship.GoldenProfileDeriver;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,18 +53,22 @@ public class ResolutionEngine {
     List<MatchDecision> decisions =
         strategy.score(record, candidates, graph.reviewThreshold(tenantId));
 
+    List<MatchDecision> matchDecisions = new ArrayList<>();
     Set<UUID> matchedGuests = new LinkedHashSet<>();
     List<MatchDecision> reviewDecisions = new ArrayList<>();
     for (MatchDecision decision : decisions) {
       switch (decision.disposition()) {
-        case MATCH -> matchedGuests.add(decision.guestId());
+        case MATCH -> {
+          matchDecisions.add(decision);
+          matchedGuests.add(decision.guestId());
+        }
         case REVIEW -> reviewDecisions.add(decision);
       }
     }
     // A guest safely matched via another identifier needs no parallel review entry.
     reviewDecisions.removeIf(d -> matchedGuests.contains(d.guestId()));
 
-    Executed executed = execute(record, matchedGuests);
+    Executed executed = execute(record, matchedGuests, matchDecisions);
     List<UUID> reviewIds = queueReviews(record, reviewDecisions);
     rebuildGuest(tenantId, executed.guestId());
 
@@ -84,13 +90,26 @@ public class ResolutionEngine {
     return candidates;
   }
 
-  private Executed execute(SourceRecord record, Set<UUID> matchedGuests) {
+  private Executed execute(
+      SourceRecord record, Set<UUID> matchedGuests, List<MatchDecision> matchDecisions) {
     UUID tenantId = record.tenantId();
-    Map<String, Object> evidence = evidence(record);
     if (matchedGuests.isEmpty()) {
       Guest guest = graph.createGuest(tenantId);
+      // Creation is not a match decision, so the event carries the strategy's own name
+      // and full confidence; evidence is what the record itself contributed.
       MergeEvent event =
-          event(tenantId, MergeEventKind.CREATE, guest.id(), List.of(), record, evidence);
+          new MergeEvent(
+              UUID.randomUUID(),
+              tenantId,
+              MergeEventKind.CREATE,
+              guest.id(),
+              List.of(),
+              List.of(record.id()),
+              strategy.name(),
+              BigDecimal.ONE,
+              Map.of("identifiers", identifiersAsMaps(record.identifiers())),
+              List.of(),
+              Instant.now());
       graph.saveEvent(event);
       graph.linkRecord(tenantId, record.id(), guest.id(), event.id());
       return new Executed(IngestStatus.CREATED_GUEST, guest.id());
@@ -98,7 +117,8 @@ public class ResolutionEngine {
     if (matchedGuests.size() == 1) {
       UUID guestId = matchedGuests.iterator().next();
       MergeEvent event =
-          event(tenantId, MergeEventKind.ATTACH, guestId, List.of(), record, evidence);
+          decisionEvent(
+              tenantId, MergeEventKind.ATTACH, guestId, List.of(), record, matchDecisions);
       graph.saveEvent(event);
       graph.linkRecord(tenantId, record.id(), guestId, event.id());
       return new Executed(IngestStatus.ATTACHED, guestId);
@@ -107,10 +127,14 @@ public class ResolutionEngine {
     List<UUID> guests = new ArrayList<>(matchedGuests);
     UUID survivor = guests.getFirst();
     List<UUID> absorbed = guests.subList(1, guests.size());
-    MergeEvent event = event(tenantId, MergeEventKind.MERGE, survivor, absorbed, record, evidence);
+    MergeEvent event =
+        decisionEvent(tenantId, MergeEventKind.MERGE, survivor, absorbed, record, matchDecisions);
     graph.saveEvent(event);
     for (UUID absorbedGuest : absorbed) {
       graph.moveLinks(tenantId, absorbedGuest, survivor, event.id());
+      // Pending reviews naming the absorbed guest must follow it, or confirm/reject
+      // would later dereference a deleted guest (schema has no FK by design).
+      graph.repointPendingReviews(tenantId, absorbedGuest, survivor);
       graph.deleteGuest(tenantId, absorbedGuest);
     }
     graph.linkRecord(tenantId, record.id(), survivor, event.id());
@@ -157,13 +181,38 @@ public class ResolutionEngine {
     graph.updateGuestProfile(tenantId, guestId, profileDeriver.derive(records));
   }
 
-  private MergeEvent event(
+  /**
+   * ATTACH/MERGE events carry the audit metadata of the decisions that caused them (FR-009/FR-010):
+   * the deciding matcher(s), the weakest contributing confidence, and per-guest matched identifiers
+   * with their sharing counts — the "why" explain shows.
+   */
+  private MergeEvent decisionEvent(
       UUID tenantId,
       MergeEventKind kind,
       UUID guestId,
       List<UUID> absorbed,
       SourceRecord record,
-      Map<String, Object> evidence) {
+      List<MatchDecision> matchDecisions) {
+    Set<String> matcherNames = new LinkedHashSet<>();
+    BigDecimal confidence = BigDecimal.ONE;
+    List<Map<String, Object>> matches = new ArrayList<>();
+    for (MatchDecision decision : matchDecisions) {
+      matcherNames.add(decision.matcherName());
+      confidence = confidence.min(decision.confidence());
+      Map<String, Object> match = new LinkedHashMap<>();
+      match.put("guestId", decision.guestId().toString());
+      match.put(
+          "identifier",
+          Map.of(
+              "type", decision.identifier().type().name(),
+              "value", decision.identifier().value()));
+      match.put("recordsSharingIdentifier", decision.recordsSharingIdentifier());
+      match.put("reason", decision.reason());
+      matches.add(match);
+    }
+    Map<String, Object> evidence = new LinkedHashMap<>();
+    evidence.put("matches", matches);
+    evidence.put("recordIdentifiers", identifiersAsMaps(record.identifiers()));
     return new MergeEvent(
         UUID.randomUUID(),
         tenantId,
@@ -171,19 +220,17 @@ public class ResolutionEngine {
         guestId,
         List.copyOf(absorbed),
         List.of(record.id()),
-        strategy.name(),
-        java.math.BigDecimal.ONE,
+        String.join(",", matcherNames),
+        confidence,
         evidence,
         List.of(),
         Instant.now());
   }
 
-  private Map<String, Object> evidence(SourceRecord record) {
-    return Map.of(
-        "identifiers",
-        record.identifiers().stream()
-            .map(i -> Map.of("type", i.type().name(), "value", i.value()))
-            .toList());
+  private List<Map<String, String>> identifiersAsMaps(List<NormalizedIdentifier> identifiers) {
+    return identifiers.stream()
+        .map(i -> Map.of("type", i.type().name(), "value", i.value()))
+        .toList();
   }
 
   private record Executed(IngestStatus status, UUID guestId) {}

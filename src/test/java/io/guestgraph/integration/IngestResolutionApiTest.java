@@ -108,7 +108,8 @@ class IngestResolutionApiTest extends PostgresIntegrationTest {
                  "payload":{"firstName":"Anna","email":"not-an-email"}}
                 """);
 
-    assertThat(result.get("status").asString()).isEqualTo("NEEDS_REVIEW");
+    assertThat(result.get("status").asString()).isEqualTo("CREATED_GUEST");
+    assertThat(result.get("needsReview").asBoolean()).isTrue();
     assertThat(result.get("guestId").asString()).isNotBlank();
     JsonNode stored =
         jdbc.sql(
@@ -218,6 +219,72 @@ class IngestResolutionApiTest extends PostgresIntegrationTest {
     assertThat(links).isEqualTo(8);
     // And every response pointed at a guest that still exists or was merged away consistently:
     assertThat(guestIds).isNotEmpty();
+  }
+
+  @Test
+  void overThresholdIdentifierParksReviewInsteadOfMerging() {
+    setReviewThreshold(TENANT_A, 1);
+    JsonNode first =
+        ingestOne(
+            TENANT_A_KEY,
+            """
+                {"sourceSystem":"opera-pms","externalKey":"t-1","payload":{"email":"family@example.com"}}
+                """);
+    assertThat(first.get("status").asString()).isEqualTo("CREATED_GUEST");
+
+    // Second record sharing the email: 2 > threshold 1 → parked, not attached (FR-017).
+    JsonNode second =
+        ingestOne(
+            TENANT_A_KEY,
+            """
+                {"sourceSystem":"opera-pms","externalKey":"t-2","payload":{"email":"family@example.com"}}
+                """);
+
+    assertThat(second.get("status").asString()).isEqualTo("CREATED_GUEST");
+    assertThat(second.get("guestId").asString()).isNotEqualTo(first.get("guestId").asString());
+    assertThat(second.get("pendingReviewIds").size()).isEqualTo(1);
+    Integer pending =
+        jdbc.sql("SELECT count(*) FROM match_review WHERE tenant_id = :t AND status = 'PENDING'")
+            .param("t", TENANT_A)
+            .query(Integer.class)
+            .single();
+    assertThat(pending).isEqualTo(1);
+    Integer merges =
+        jdbc.sql("SELECT count(*) FROM merge_event WHERE kind IN ('ATTACH','MERGE')")
+            .query(Integer.class)
+            .single();
+    assertThat(merges).isZero();
+  }
+
+  @Test
+  void identifierSharedAcrossTenantsNeverMatches() {
+    registerSource(TENANT_B_KEY, "opera-pms");
+    JsonNode inTenantA =
+        ingestOne(
+            TENANT_A_KEY,
+            """
+                {"sourceSystem":"opera-pms","externalKey":"x-1","payload":{"email":"same@example.com"}}
+                """);
+
+    JsonNode inTenantB =
+        ingestOne(
+            TENANT_B_KEY,
+            """
+                {"sourceSystem":"opera-pms","externalKey":"x-1","payload":{"email":"same@example.com"}}
+                """);
+
+    // SC-006: the same identifier in another tenant is invisible — two guests, no merge, no review.
+    assertThat(inTenantA.get("status").asString()).isEqualTo("CREATED_GUEST");
+    assertThat(inTenantB.get("status").asString()).isEqualTo("CREATED_GUEST");
+    assertThat(inTenantB.get("guestId").asString())
+        .isNotEqualTo(inTenantA.get("guestId").asString());
+    Integer crossTenantEvents =
+        jdbc.sql("SELECT count(*) FROM merge_event WHERE kind IN ('ATTACH','MERGE')")
+            .query(Integer.class)
+            .single();
+    assertThat(crossTenantEvents).isZero();
+    Integer reviews = jdbc.sql("SELECT count(*) FROM match_review").query(Integer.class).single();
+    assertThat(reviews).isZero();
   }
 
   private void registerSource(String apiKey, String code) {

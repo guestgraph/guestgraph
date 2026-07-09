@@ -92,8 +92,9 @@ Set once: `H='-H "X-API-Key: demo-key" -H "Content-Type: application/json"'` —
    ```
 
    Expect: `Content-Type: application/problem+json` with `type`, `title`, `status`, `detail`
-   (RFC 9457). A record with an unusable email but valid payload → `NEEDS_REVIEW`, stored,
-   never dropped. A request without `X-API-Key` → 401 problem details.
+   (RFC 9457). A record with an unusable email but valid payload → stored with
+   `needsReview: true` beside its resolution status, never dropped. A request without
+   `X-API-Key` → 401 problem details.
 
 ## Success-criteria spot checks
 

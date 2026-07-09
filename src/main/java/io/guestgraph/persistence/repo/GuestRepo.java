@@ -1,6 +1,7 @@
 package io.guestgraph.persistence.repo;
 
 import io.guestgraph.persistence.entity.GuestEntity;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -8,6 +9,9 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
 public interface GuestRepo extends Repository<GuestEntity, UUID> {
+
+  @Query("select g from GuestEntity g where g.tenantId = :tenantId and g.id = :guestId")
+  Optional<GuestEntity> findGuest(@Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId);
 
   /** Native: jsonb cast — the sanctioned explicit-SQL corner (research R1). */
   @Modifying(flushAutomatically = true, clearAutomatically = true)

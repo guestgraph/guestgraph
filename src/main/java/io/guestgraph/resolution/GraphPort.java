@@ -5,6 +5,7 @@ import io.guestgraph.domain.IdentifierType;
 import io.guestgraph.domain.MatchReview;
 import io.guestgraph.domain.MergeEvent;
 import io.guestgraph.domain.NormalizedIdentifier;
+import io.guestgraph.domain.ReviewStatus;
 import io.guestgraph.domain.SourceRecord;
 import java.util.Collection;
 import java.util.List;
@@ -57,4 +58,15 @@ public interface GraphPort {
   void saveReview(MatchReview review);
 
   boolean pendingReviewExists(UUID tenantId, UUID sourceRecordId, UUID candidateGuestId);
+
+  /** Re-points PENDING reviews naming {@code fromGuestId} to {@code toGuestId} (merge survivor). */
+  void repointPendingReviews(UUID tenantId, UUID fromGuestId, UUID toGuestId);
+
+  /** Drops PENDING reviews naming a guest that ceased to exist (unmerge emptied it). */
+  void cancelPendingReviews(UUID tenantId, UUID candidateGuestId);
+
+  Optional<MatchReview> findReview(UUID tenantId, UUID reviewId);
+
+  /** Single PENDING → decided transition; returns 0 when the review was already decided. */
+  int decideReview(UUID tenantId, UUID reviewId, ReviewStatus newStatus, UUID decisionEventId);
 }

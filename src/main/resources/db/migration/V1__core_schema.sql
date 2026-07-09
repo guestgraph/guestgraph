@@ -78,6 +78,25 @@ CREATE TRIGGER source_record_immutable
     FOR EACH ROW
 EXECUTE FUNCTION source_record_immutable();
 
+-- Belt-and-braces for append-only tables: application code never deletes source
+-- records or merge events; lawful GDPR erasure (the constitution's sole exception)
+-- goes through an explicit session setting.
+CREATE FUNCTION guard_append_only() RETURNS trigger AS
+$$
+BEGIN
+    IF current_setting('guestgraph.allow_erasure', true) IS DISTINCT FROM 'on' THEN
+        RAISE EXCEPTION '% is append-only; set guestgraph.allow_erasure = ''on'' for lawful erasure', TG_TABLE_NAME;
+    END IF;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER source_record_append_only
+    BEFORE DELETE
+    ON source_record
+    FOR EACH ROW
+EXECUTE FUNCTION guard_append_only();
+
 CREATE TABLE record_identifier (
     id               uuid PRIMARY KEY,
     tenant_id        uuid NOT NULL,
@@ -107,6 +126,12 @@ CREATE TABLE merge_event (
 
 CREATE INDEX merge_event_guest_idx ON merge_event (tenant_id, guest_id, created_at);
 
+CREATE TRIGGER merge_event_append_only
+    BEFORE DELETE
+    ON merge_event
+    FOR EACH ROW
+EXECUTE FUNCTION guard_append_only();
+
 CREATE TABLE resolution_link (
     id                  uuid PRIMARY KEY,
     tenant_id           uuid NOT NULL,
@@ -128,6 +153,9 @@ CREATE TABLE identifier (
 );
 
 CREATE INDEX identifier_lookup_idx ON identifier (tenant_id, type, value_normalized);
+-- Hot write path: every ingest rebuilds a guest's identifiers (delete-by-guest), and
+-- guest deletion cascades here — both need this access path.
+CREATE INDEX identifier_guest_idx ON identifier (tenant_id, guest_id);
 
 CREATE TABLE match_review (
     id                 uuid PRIMARY KEY,

@@ -69,6 +69,7 @@ public class IngestService {
           existing.get(),
           guestId,
           IngestStatus.DUPLICATE_IGNORED,
+          false,
           java.util.List.of(),
           null);
     }
@@ -91,15 +92,13 @@ public class IngestService {
     sourceRecordStore.insert(record);
 
     ResolutionOutcome outcome = engine.resolve(record);
-    IngestStatus status =
-        record.needsReview() || !outcome.pendingReviewIds().isEmpty()
-            ? IngestStatus.NEEDS_REVIEW
-            : outcome.status();
+    // The status is the real resolution outcome; review flags travel beside it, not over it.
     return new IngestResult(
         request.externalKey(),
         record.id(),
         outcome.guestId(),
-        status,
+        outcome.status(),
+        record.needsReview(),
         outcome.pendingReviewIds(),
         null);
   }

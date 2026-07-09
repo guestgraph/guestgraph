@@ -356,21 +356,27 @@ components:
 
     IngestResult:
       type: object
-      required: [externalKey, status]
+      required: [externalKey, status, needsReview]
       properties:
         externalKey: { type: string }
         sourceRecordId: { type: [string, "null"], format: uuid }
         guestId: { type: [string, "null"], format: uuid }
         status:
           type: string
-          enum: [CREATED_GUEST, ATTACHED, MERGED, DUPLICATE_IGNORED, NEEDS_REVIEW, ERROR]
+          enum: [CREATED_GUEST, ATTACHED, MERGED, DUPLICATE_IGNORED, ERROR]
           description: >
-            CREATED_GUEST: no match, new guest. ATTACHED: one match. MERGED: 2+ guests
-            merged. DUPLICATE_IGNORED: same sourceSystem+externalKey already stored.
-            NEEDS_REVIEW: stored flagged (also set alongside a pending match review).
-            ERROR: this record failed validation — problem carries details.
+            The resolution outcome. CREATED_GUEST: no match, new guest. ATTACHED: one
+            match. MERGED: 2+ guests merged. DUPLICATE_IGNORED: same
+            sourceSystem+externalKey already stored. ERROR: this record failed —
+            problem carries details.
+        needsReview:
+          type: boolean
+          description: >
+            The record was stored but flagged (malformed values, no valid identifiers).
+            Reported beside the status so neither masks the other.
         pendingReviewIds:
           type: array
+          description: Suspicious matches parked in the review queue instead of merged
           items: { type: string, format: uuid }
         problem:
           oneOf:

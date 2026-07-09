@@ -27,7 +27,7 @@ increment.
 
 **Purpose**: Bootable Spring Boot 4 / Java 25 project skeleton
 
-- [X] T001 Create Maven project: `pom.xml` (Spring Boot 4 parent, Java 25; starters: web, validation, data-jdbc, flyway, postgresql driver; libphonenumber; test: spring-boot-starter-test, testcontainers-postgresql, spring-boot-testcontainers), Maven wrapper `mvnw`/`.mvn/`, and `.gitignore`
+- [X] T001 Create Maven project: `pom.xml` (Spring Boot 4 parent, Java 25; starters: web, validation, data-jpa, flyway, postgresql driver; libphonenumber; test: spring-boot-starter-test, testcontainers-postgresql, spring-boot-testcontainers), Maven wrapper `mvnw`/`.mvn/`, and `.gitignore`
 - [X] T002 Create `src/main/java/io/guestgraph/GuestGraphApplication.java` and `src/main/resources/application.yaml` (virtual threads on, `spring.mvc.problemdetails.enabled=true`, Flyway enabled, datasource via Docker Compose support)
 - [X] T003 [P] Create `compose.yaml` (PostgreSQL 18) and local-dev seed for tenant `demo` + API key `demo-key` (dev profile only, e.g. `src/main/resources/application-local.yaml` + seed SQL)
 - [X] T004 [P] Create CI workflow `.github/workflows/ci.yml` running `./mvnw verify` (Docker available for Testcontainers)
@@ -64,20 +64,20 @@ verify the expected number of distinct guests and correct record attachment (spe
 
 ### Tests for User Story 1 (TDD — write first, see them FAIL) ⚠
 
-- [ ] T012 [P] [US1] Write failing unit tests for normalizers in `src/test/java/io/guestgraph/normalize/NormalizerTest.java`: email trim+lowercase, phone→E.164 via libphonenumber (incl. unparseable → rejection outcome, never a guess), ID document → SHA-256 of `TYPE:NUMBER`, loyalty/external key trim (research R5)
-- [ ] T013 [P] [US1] Write failing table-driven resolution scenario tests in `src/test/java/io/guestgraph/resolution/ResolutionScenarioTest.java` (pure JVM, in-memory fixtures: record sets in → expected guest clusters + expected MergeEvents out): new guest on 0 matches, attach on 1 match (case-insensitive email), transitive 2+ match merge, record with no valid identifiers → new guest + needs_review, duplicate source+externalKey ignored
-- [ ] T014 [P] [US1] Write failing unit tests for survivorship in `src/test/java/io/guestgraph/survivorship/GoldenProfileDeriverTest.java`: per-field most-recent-non-null, recordTimestamp fallback to receivedAt, conflicting values across 3 records (spec US2/AS1 rule defined here)
+- [X] T012 [P] [US1] Write failing unit tests for normalizers in `src/test/java/io/guestgraph/normalize/NormalizerTest.java`: email trim+lowercase, phone→E.164 via libphonenumber (incl. unparseable → rejection outcome, never a guess), ID document → SHA-256 of `TYPE:NUMBER`, loyalty/external key trim (research R5)
+- [X] T013 [P] [US1] Write failing table-driven resolution scenario tests in `src/test/java/io/guestgraph/resolution/ResolutionScenarioTest.java` (pure JVM, in-memory fixtures: record sets in → expected guest clusters + expected MergeEvents out): new guest on 0 matches, attach on 1 match (case-insensitive email), transitive 2+ match merge, record with no valid identifiers → new guest + needs_review, duplicate source+externalKey ignored
+- [X] T014 [P] [US1] Write failing unit tests for survivorship in `src/test/java/io/guestgraph/survivorship/GoldenProfileDeriverTest.java`: per-field most-recent-non-null, recordTimestamp fallback to receivedAt, conflicting values across 3 records (spec US2/AS1 rule defined here)
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Implement normalizers in `src/main/java/io/guestgraph/normalize/` (EmailNormalizer, PhoneNormalizer, IdDocumentHasher, plain trims) until T012 is green
-- [ ] T016 [US1] Define `ResolutionStrategy` candidate-scoring interface (candidates in → scored `MatchDecision`s out, carrying matcher name + confidence) and `DeterministicMatcher` (confidence 1.0) in `src/main/java/io/guestgraph/resolution/`
-- [ ] T017 [US1] Implement `ResolutionService` in `src/main/java/io/guestgraph/resolution/ResolutionService.java`: find candidates by shared identifiers, apply strategy, execute create/attach/merge outcomes, write MergeEvents (CREATE/ATTACH/MERGE with evidence), rebuild guest identifiers, run inside `TenantLock` — until T013 is green
-- [ ] T018 [US1] Implement `GoldenProfileDeriver` pure function in `src/main/java/io/guestgraph/survivorship/GoldenProfileDeriver.java` until T014 is green; ResolutionService recomputes `guest.profile` on every link change
-- [ ] T019 [US1] Implement ingest pipeline in `src/main/java/io/guestgraph/ingest/`: payload parsing, identifier extraction via normalizers, `needs_review` flagging with reasons (malformed-but-parseable is stored, never dropped — FR-006), dedup on (sourceSystem, externalKey) → DUPLICATE_IGNORED
-- [ ] T020 [US1] Implement `POST /api/v1/source-systems` in `src/main/java/io/guestgraph/api/SourceSystemController.java` (201, 409 on duplicate code) + integration test `src/test/java/io/guestgraph/integration/SourceSystemApiTest.java`
-- [ ] T021 [US1] Implement `POST /api/v1/records` in `src/main/java/io/guestgraph/api/RecordIngestController.java`: single or batch ≤1000, sequential processing, per-record `IngestResult` (never atomic batch failure), unparseable body → 400 problem details per contracts/openapi.yaml
-- [ ] T022 [US1] Write end-to-end API integration tests in `src/test/java/io/guestgraph/integration/IngestResolutionApiTest.java` covering spec US1 acceptance scenarios 1–6, including a concurrent-ingest test (parallel requests sharing identifiers → consistent graph, FR-011)
+- [X] T015 [US1] Implement normalizers in `src/main/java/io/guestgraph/normalize/` (EmailNormalizer, PhoneNormalizer, IdDocumentHasher, plain trims) until T012 is green
+- [X] T016 [US1] Define `ResolutionStrategy` candidate-scoring interface (candidates in → scored `MatchDecision`s out, carrying matcher name + confidence) and `DeterministicMatcher` (confidence 1.0) in `src/main/java/io/guestgraph/resolution/`
+- [X] T017 [US1] Implement `ResolutionService` in `src/main/java/io/guestgraph/resolution/ResolutionService.java`: find candidates by shared identifiers, apply strategy, execute create/attach/merge outcomes, write MergeEvents (CREATE/ATTACH/MERGE with evidence), rebuild guest identifiers, run inside `TenantLock` — until T013 is green
+- [X] T018 [US1] Implement `GoldenProfileDeriver` pure function in `src/main/java/io/guestgraph/survivorship/GoldenProfileDeriver.java` until T014 is green; ResolutionService recomputes `guest.profile` on every link change
+- [X] T019 [US1] Implement ingest pipeline in `src/main/java/io/guestgraph/ingest/`: payload parsing, identifier extraction via normalizers, `needs_review` flagging with reasons (malformed-but-parseable is stored, never dropped — FR-006), dedup on (sourceSystem, externalKey) → DUPLICATE_IGNORED
+- [X] T020 [US1] Implement `POST /api/v1/source-systems` in `src/main/java/io/guestgraph/api/SourceSystemController.java` (201, 409 on duplicate code) + integration test `src/test/java/io/guestgraph/integration/SourceSystemApiTest.java`
+- [X] T021 [US1] Implement `POST /api/v1/records` in `src/main/java/io/guestgraph/api/RecordIngestController.java`: single or batch ≤1000, sequential processing, per-record `IngestResult` (never atomic batch failure), unparseable body → 400 problem details per contracts/openapi.yaml
+- [X] T022 [US1] Write end-to-end API integration tests in `src/test/java/io/guestgraph/integration/IngestResolutionApiTest.java` covering spec US1 acceptance scenarios 1–6, including a concurrent-ingest test (parallel requests sharing identifiers → consistent graph, FR-011)
 
 **Checkpoint**: MVP — records in, resolved tenant-scoped guests out, full audit trail
 
@@ -93,9 +93,9 @@ records; look up by email and phone in unnormalized form and get the same guest 
 
 ### Implementation for User Story 2
 
-- [ ] T023 [P] [US2] Implement `GET /api/v1/guests/{id}` (profile + identifiers, 404 outside tenant) and `GET /api/v1/guests/{id}/records` (originals verbatim) in `src/main/java/io/guestgraph/api/GuestController.java` with a read-side query service in `src/main/java/io/guestgraph/persistence/GuestQueryService.java`
-- [ ] T024 [US2] Implement `GET /api/v1/guests?identifier=...&type=...` lookup in `GuestController`: normalize input first, empty list on miss (never an error), optional type filter
-- [ ] T025 [US2] Write integration tests `src/test/java/io/guestgraph/integration/GuestQueryApiTest.java` covering spec US2 acceptance scenarios 1–5, plus dedicated cross-tenant isolation test `src/test/java/io/guestgraph/integration/TenantIsolationTest.java` (guest fetch/lookup/records across tenants behaves as not-found/empty — SC-006)
+- [X] T023 [P] [US2] Implement `GET /api/v1/guests/{id}` (profile + identifiers, 404 outside tenant) and `GET /api/v1/guests/{id}/records` (originals verbatim) in `src/main/java/io/guestgraph/api/GuestController.java` with a read-side query service in `src/main/java/io/guestgraph/persistence/GuestQueryService.java`
+- [X] T024 [US2] Implement `GET /api/v1/guests?identifier=...&type=...` lookup in `GuestController`: normalize input first, empty list on miss (never an error), optional type filter
+- [X] T025 [US2] Write integration tests `src/test/java/io/guestgraph/integration/GuestQueryApiTest.java` covering spec US2 acceptance scenarios 1–5, plus dedicated cross-tenant isolation test `src/test/java/io/guestgraph/integration/TenantIsolationTest.java` (guest fetch/lookup/records across tenants behaves as not-found/empty — SC-006)
 
 **Checkpoint**: Resolved graph is consumable — first full end-to-end business value
 
@@ -111,13 +111,13 @@ verify records regroup correctly and the wrong merge is not silently recreated (
 
 ### Tests for User Story 3 (TDD — write first, see them FAIL) ⚠
 
-- [ ] T026 [P] [US3] Extend `src/test/java/io/guestgraph/resolution/ResolutionScenarioTest.java` with failing unmerge/replay scenarios: detach one of three records → correct regrouping, unmerge-then-reingest-identical-record does not rejoin (exclusion list, research R8), unmerge on single-record guest → error, explain chain includes absorbed guests' events
+- [X] T026 [P] [US3] Extend `src/test/java/io/guestgraph/resolution/ResolutionScenarioTest.java` with failing unmerge/replay scenarios: detach one of three records → correct regrouping, unmerge-then-reingest-identical-record does not rejoin (exclusion list, research R8), unmerge on single-record guest → error, explain chain includes absorbed guests' events
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] Implement `ExplainService` in `src/main/java/io/guestgraph/resolution/ExplainService.java`: collect merge_event chain for guest + transitively for `absorbed_guest_ids`, oldest first
-- [ ] T028 [US3] Implement `UnmergeService` in `src/main/java/io/guestgraph/resolution/UnmergeService.java`: validate links, delete resolution_links, write UNMERGE event with `excluded_guest_ids`, re-resolve detached records honoring exclusions, recompute remaining guest's identifiers + profile, delete emptied guests — inside `TenantLock`; until T026 green
-- [ ] T029 [US3] Implement `GET /api/v1/guests/{id}/explain` and `POST /api/v1/guests/{id}/unmerge` in `GuestController` per contracts/openapi.yaml + integration tests `src/test/java/io/guestgraph/integration/ExplainUnmergeApiTest.java` covering spec US3 acceptance scenarios 1–4
+- [X] T027 [US3] Implement `ExplainService` in `src/main/java/io/guestgraph/resolution/ExplainService.java`: collect merge_event chain for guest + transitively for `absorbed_guest_ids`, oldest first
+- [X] T028 [US3] Implement `UnmergeService` in `src/main/java/io/guestgraph/resolution/UnmergeService.java`: validate links, delete resolution_links, write UNMERGE event with `excluded_guest_ids`, re-resolve detached records honoring exclusions, recompute remaining guest's identifiers + profile, delete emptied guests — inside `TenantLock`; until T026 green
+- [X] T029 [US3] Implement `GET /api/v1/guests/{id}/explain` and `POST /api/v1/guests/{id}/unmerge` in `GuestController` per contracts/openapi.yaml + integration tests `src/test/java/io/guestgraph/integration/ExplainUnmergeApiTest.java` covering spec US3 acceptance scenarios 1–4
 
 **Checkpoint**: Safety machinery complete — every merge explainable and reversible
 
@@ -133,13 +133,13 @@ PENDING review; confirm one and reject another, verify outcomes (spec US4).
 
 ### Tests for User Story 4 (TDD — write first, see them FAIL) ⚠
 
-- [ ] T030 [P] [US4] Extend `src/test/java/io/guestgraph/resolution/ResolutionScenarioTest.java` with failing threshold scenarios: identifier shared by more than `review_threshold` records → no merge + MatchReview created + record still resolves via its other identifiers; confirm → merge + REVIEW_CONFIRM event; reject → separate guests + REVIEW_REJECT event; second decision → conflict
+- [X] T030 [P] [US4] Extend `src/test/java/io/guestgraph/resolution/ResolutionScenarioTest.java` with failing threshold scenarios: identifier shared by more than `review_threshold` records → no merge + MatchReview created + record still resolves via its other identifiers; confirm → merge + REVIEW_CONFIRM event; reject → separate guests + REVIEW_REJECT event; second decision → conflict
 
 ### Implementation for User Story 4
 
-- [ ] T031 [US4] Add suspicious-match detection to `ResolutionService`/`DeterministicMatcher`: count records sharing the candidate identifier (record_identifier index), compare to `tenant.review_threshold` (default 10, research R9), create `match_review` rows instead of merging suspicious candidates
-- [ ] T032 [US4] Implement `ReviewDecisionService` in `src/main/java/io/guestgraph/resolution/ReviewDecisionService.java`: single-transition PENDING→CONFIRMED/REJECTED (409 on repeat), confirm executes merge via ResolutionService inside `TenantLock`, links `decision_event_id`; until T030 green
-- [ ] T033 [US4] Implement `GET /api/v1/match-reviews` (status filter, pagination) and `POST /api/v1/match-reviews/{id}` in `src/main/java/io/guestgraph/api/MatchReviewController.java` + integration tests `src/test/java/io/guestgraph/integration/MatchReviewApiTest.java` covering spec US4 acceptance scenarios 1–4 (incl. tenant isolation of the queue)
+- [X] T031 [US4] Add suspicious-match detection to `ResolutionService`/`DeterministicMatcher`: count records sharing the candidate identifier (record_identifier index), compare to `tenant.review_threshold` (default 10, research R9), create `match_review` rows instead of merging suspicious candidates
+- [X] T032 [US4] Implement `ReviewDecisionService` in `src/main/java/io/guestgraph/resolution/ReviewDecisionService.java`: single-transition PENDING→CONFIRMED/REJECTED (409 on repeat), confirm executes merge via ResolutionService inside `TenantLock`, links `decision_event_id`; until T030 green
+- [X] T033 [US4] Implement `GET /api/v1/match-reviews` (status filter, pagination) and `POST /api/v1/match-reviews/{id}` in `src/main/java/io/guestgraph/api/MatchReviewController.java` + integration tests `src/test/java/io/guestgraph/integration/MatchReviewApiTest.java` covering spec US4 acceptance scenarios 1–4 (incl. tenant isolation of the queue)
 
 **Checkpoint**: All four user stories independently functional
 
@@ -147,9 +147,9 @@ PENDING review; confirm one and reject another, verify outcomes (spec US4).
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T034 [P] Write contract conformance tests in `src/test/java/io/guestgraph/contract/OpenApiConformanceTest.java` validating live responses against `specs/001-core-identity-resolution/contracts/openapi.yaml`
-- [ ] T035 [P] Update `README.md` with build/run/quickstart instructions matching `specs/001-core-identity-resolution/quickstart.md`
-- [ ] T036 Execute the full quickstart smoke walk (`specs/001-core-identity-resolution/quickstart.md`) against a locally running service; verify each success-criteria spot check (SC-001…SC-007), including single-record ingest responding < 1 s (SC-002)
+- [X] T034 [P] Write contract conformance tests in `src/test/java/io/guestgraph/contract/OpenApiConformanceTest.java` validating live responses against `specs/001-core-identity-resolution/contracts/openapi.yaml`
+- [X] T035 [P] Update `README.md` with build/run/quickstart instructions matching `specs/001-core-identity-resolution/quickstart.md`
+- [X] T036 Execute the full quickstart smoke walk (`specs/001-core-identity-resolution/quickstart.md`) against a locally running service; verify each success-criteria spot check (SC-001…SC-007), including single-record ingest responding < 1 s (SC-002)
 
 ---
 

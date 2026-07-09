@@ -147,7 +147,11 @@ public class InMemoryGraph implements GraphPort {
 
   @Override
   public List<MergeEvent> eventsForGuests(UUID tenantId, Collection<UUID> guestIds) {
-    return events.stream().filter(e -> guestIds.contains(e.guestId())).toList();
+    // Mirrors MergeEventRepo.findByGuestIds ordering: oldest first (stable on ties).
+    return events.stream()
+        .filter(e -> guestIds.contains(e.guestId()))
+        .sorted(java.util.Comparator.comparing(MergeEvent::createdAt))
+        .toList();
   }
 
   @Override
@@ -170,6 +174,66 @@ public class InMemoryGraph implements GraphPort {
   @Override
   public void saveReview(MatchReview review) {
     reviews.add(review);
+  }
+
+  @Override
+  public void repointPendingReviews(UUID tenantId, UUID fromGuestId, UUID toGuestId) {
+    reviews.replaceAll(
+        r ->
+            r.status() == ReviewStatus.PENDING && r.candidateGuestId().equals(fromGuestId)
+                ? new MatchReview(
+                    r.id(),
+                    r.tenantId(),
+                    r.status(),
+                    r.sourceRecordId(),
+                    toGuestId,
+                    r.identifierType(),
+                    r.identifierValue(),
+                    r.reason(),
+                    r.matcherName(),
+                    r.confidence(),
+                    r.createdAt(),
+                    r.decidedAt(),
+                    r.decisionEventId())
+                : r);
+  }
+
+  @Override
+  public void cancelPendingReviews(UUID tenantId, UUID candidateGuestId) {
+    reviews.removeIf(
+        r -> r.status() == ReviewStatus.PENDING && r.candidateGuestId().equals(candidateGuestId));
+  }
+
+  @Override
+  public Optional<MatchReview> findReview(UUID tenantId, UUID reviewId) {
+    return reviews.stream().filter(r -> r.id().equals(reviewId)).findFirst();
+  }
+
+  @Override
+  public int decideReview(UUID tenantId, UUID reviewId, ReviewStatus newStatus, UUID eventId) {
+    for (int i = 0; i < reviews.size(); i++) {
+      MatchReview r = reviews.get(i);
+      if (r.id().equals(reviewId) && r.status() == ReviewStatus.PENDING) {
+        reviews.set(
+            i,
+            new MatchReview(
+                r.id(),
+                r.tenantId(),
+                newStatus,
+                r.sourceRecordId(),
+                r.candidateGuestId(),
+                r.identifierType(),
+                r.identifierValue(),
+                r.reason(),
+                r.matcherName(),
+                r.confidence(),
+                r.createdAt(),
+                Instant.now(),
+                eventId));
+        return 1;
+      }
+    }
+    return 0;
   }
 
   @Override

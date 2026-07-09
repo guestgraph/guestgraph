@@ -35,7 +35,9 @@ public class SourceRecordEntity {
 
   private String externalKey;
 
-  /** The original payload exactly as received — raw JSON, never reserialized. */
+  /**
+   * The original payload — parsed once at ingest and stored semantically equal (R2); never mutated.
+   */
   @JdbcTypeCode(SqlTypes.JSON)
   private String payload;
 

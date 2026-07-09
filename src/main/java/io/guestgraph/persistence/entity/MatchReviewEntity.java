@@ -12,8 +12,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Review-queue row. The only state change is the single PENDING→decided transition, done via the
- * explicit conditional bulk update in MatchReviewRepo — no setters.
+ * Review-queue row. State changes only via explicit conditional bulk updates in MatchReviewRepo
+ * (survivor re-pointing today, the single PENDING→decided transition with US4) — no setters.
  */
 @Entity
 @Table(name = "match_review")

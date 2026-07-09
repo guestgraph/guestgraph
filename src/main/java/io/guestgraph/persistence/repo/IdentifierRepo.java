@@ -24,4 +24,13 @@ public interface IdentifierRepo extends Repository<IdentifierEntity, UUID> {
   @Modifying(flushAutomatically = true, clearAutomatically = true)
   @Query("delete from IdentifierEntity i where i.tenantId = :tenantId and i.guestId = :guestId")
   int deleteForGuest(@Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId);
+
+  @Query(
+      """
+            select i from IdentifierEntity i
+            where i.tenantId = :tenantId and i.guestId = :guestId
+            order by i.type, i.valueNormalized
+            """)
+  List<IdentifierEntity> findByGuest(
+      @Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId);
 }

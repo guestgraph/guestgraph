@@ -42,6 +42,31 @@ flowchart TB
 - Maven
 - Spec-driven development with [spec-kit](https://github.com/github/spec-kit)
 
+## Quickstart
+
+Prerequisites: JDK 25 and Docker (Postgres runs via `compose.yaml` automatically).
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local   # seeds tenant "demo" + API key "demo-key"
+```
+
+```bash
+# register a source system, ingest a record, resolve → guest id
+curl -s -X POST localhost:8080/api/v1/source-systems \
+  -H 'X-API-Key: demo-key' -H 'Content-Type: application/json' \
+  -d '{"code":"opera-pms","name":"Opera PMS"}'
+curl -s -X POST localhost:8080/api/v1/records \
+  -H 'X-API-Key: demo-key' -H 'Content-Type: application/json' \
+  -d '{"sourceSystem":"opera-pms","externalKey":"r-1","payload":{"firstName":"Anna","email":"anna@example.com"}}'
+```
+
+API surface (`/api/v1`, per-tenant `X-API-Key`, errors are RFC 9457 problem details):
+`POST /source-systems` · `POST /records` · `GET /guests/{id}` · `GET /guests/{id}/records` ·
+`GET /guests/{id}/explain` · `POST /guests/{id}/unmerge` · `GET /guests?identifier=…` ·
+`GET /match-reviews` · `POST /match-reviews/{id}` — full contract in
+[`specs/001-core-identity-resolution/contracts/openapi.yaml`](specs/001-core-identity-resolution/contracts/openapi.yaml),
+walkthrough in [`specs/001-core-identity-resolution/quickstart.md`](specs/001-core-identity-resolution/quickstart.md).
+
 ## Developing
 
 ```bash
@@ -49,6 +74,10 @@ flowchart TB
 ./mvnw spotless:apply      # format (google-java-format, Google style) — CI rejects unformatted code
 ./scripts/regen-er.sh      # regenerate docs/er-schema.mmd after schema changes — CI checks drift
 ```
+
+Note for Eclipse/Spring Tools users: point the IDE build output away from `target/classes`
+(e.g. `bin/`), or stale IDE-compiled classes can break `./mvnw verify` with
+`NoClassDefFoundError` until a `./mvnw clean`.
 
 ## Design principles
 

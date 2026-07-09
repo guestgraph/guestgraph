@@ -6,6 +6,5 @@ public enum IngestStatus {
   ATTACHED,
   MERGED,
   DUPLICATE_IGNORED,
-  NEEDS_REVIEW,
   ERROR
 }

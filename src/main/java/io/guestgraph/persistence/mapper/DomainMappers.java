@@ -1,12 +1,15 @@
 package io.guestgraph.persistence.mapper;
 
 import io.guestgraph.domain.Guest;
+import io.guestgraph.domain.MatchReview;
 import io.guestgraph.domain.MergeEvent;
 import io.guestgraph.domain.NormalizedIdentifier;
 import io.guestgraph.domain.SourceRecord;
 import io.guestgraph.domain.SourceSystem;
 import io.guestgraph.domain.Tenant;
 import io.guestgraph.persistence.entity.GuestEntity;
+import io.guestgraph.persistence.entity.IdentifierEntity;
+import io.guestgraph.persistence.entity.MatchReviewEntity;
 import io.guestgraph.persistence.entity.MergeEventEntity;
 import io.guestgraph.persistence.entity.RecordIdentifierEntity;
 import io.guestgraph.persistence.entity.SourceRecordEntity;
@@ -42,4 +45,13 @@ public interface DomainMappers {
 
   @Mapping(target = "value", source = "valueNormalized")
   NormalizedIdentifier toDomain(RecordIdentifierEntity entity);
+
+  @Mapping(target = "value", source = "valueNormalized")
+  NormalizedIdentifier toDomain(IdentifierEntity entity);
+
+  List<NormalizedIdentifier> toDomainIdentifiers(List<IdentifierEntity> entities);
+
+  MatchReview toDomain(MatchReviewEntity entity);
+
+  List<MatchReview> toDomainReviews(List<MatchReviewEntity> entities);
 }

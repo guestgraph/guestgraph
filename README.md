@@ -31,10 +31,10 @@ Guest data in hospitality is scattered — PMS, POS, booking engines, loyalty pr
 
 ## Roadmap
 
-1. ✅→🚧 **Core** — identity resolution engine, guest graph, REST API *(current)*
-2. **Timeline** — unified per-guest event timeline / journey
-3. **Connectors** — ingest from real PMS/POS/booking systems
-4. **Probabilistic matching** — fuzzy/ML resolution behind the same strategy interface
+1. 🚧 **Core** — identity resolution engine (deterministic, probabilistic-ready), guest graph, REST API *(current)*
+2. **Probabilistic matching** — fuzzy/ML resolution behind the same strategy interface, with review queue
+3. **Timeline** — unified per-guest event timeline / journey
+4. **Connectors** — ingest from real PMS/POS/booking systems
 
 ## License
 

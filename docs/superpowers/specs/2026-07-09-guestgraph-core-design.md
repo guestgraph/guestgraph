@@ -12,10 +12,10 @@ GuestGraph is an open-source **guest identity graph** for hospitality. Guest dat
 
 ## Roadmap (each slice = one spec → plan → implement cycle)
 
-1. **Core service** *(this design)* — ingest, deterministic resolution, query the graph
-2. **Timeline/journey** — unified per-guest event timeline on resolved identities
-3. **Connectors** — pull from real systems (PMS first)
-4. **Probabilistic matching** — fuzzy/ML resolution behind the strategy interface from slice 1
+1. **Core service** *(this design)* — ingest, deterministic resolution, query the graph. **Probabilistic-ready from day 1**: confidence scores, matcher metadata, and review queue are in the v1 data model so slice 2 lands without migration.
+2. **Probabilistic matching** — fuzzy/ML resolution behind the strategy interface from slice 1. This is the long-term differentiator; deterministic ships first only because wrong merges are privacy incidents, and the safety machinery (explain, unmerge, review queue) must exist before probabilistic decisions are trusted.
+3. **Timeline/journey** — unified per-guest event timeline on resolved identities
+4. **Connectors** — pull from real systems (PMS first)
 5. **Commercial layer** — managed multi-tenant SaaS, MCP server, console (private repo `guestgraph/cloud`)
 
 ## Decisions (fixed)
@@ -27,7 +27,7 @@ GuestGraph is an open-source **guest identity graph** for hospitality. Guest dat
 | Shape | Single Spring Boot service with REST API | API-first from day 1; SaaS later hosts the same service; single module until slice 2 forces modularization |
 | License | Apache 2.0 | Adoption over protection; moat = execution, connectors, managed/MCP layer |
 | Tenancy | Tenant-scoped from day 1 | Cheap now, brutal to retrofit; SaaS runs identical code; hotel groups use tenants per brand/property |
-| Resolution v1 | Deterministic only, behind a `ResolutionStrategy` interface | Ship the correct 80%; fuzzy/ML is slice 4, possibly a sidecar (Python/ONNX) |
+| Resolution v1 | Deterministic matcher first, but engine is **probabilistic-ready**: confidence scores, matcher metadata, review queue in the v1 model | Wrong merges are privacy incidents — safety machinery before probabilistic decisions. Fuzzy/ML is slice 2 (possibly a sidecar: Python/ONNX), landing without migration |
 
 ## Data model (Postgres)
 
@@ -40,8 +40,14 @@ Guest                     the golden profile — merged view over its source rec
   ├── has many SourceRecords (via ResolutionLink)
   └── Identifier          normalized strong identifiers: EMAIL, PHONE,
                           LOYALTY_ID, ID_DOCUMENT (hashed), EXTERNAL_KEY
-MergeEvent                audit log: which records/guests merged, which rule fired,
+MergeEvent                audit log: which records/guests merged, which matcher
+                          decided it, confidence score (deterministic = 1.0),
                           when — the basis for explain & unmerge
+MatchReview               review queue: uncertain or suspicious matches awaiting
+                          human confirm/reject (e.g. one email shared by 40
+                          records — family/agency address). Used by deterministic
+                          edge cases in v1; the primary channel for probabilistic
+                          matches in slice 2.
 ```
 
 Principles:
@@ -59,7 +65,9 @@ On ingest:
 3. Outcomes: **0 matches** → create new Guest. **1 match** → attach record. **2+ matches** → merge those guests (transitive identity), recording MergeEvents.
 
 - Runs synchronously in the ingest request (virtual threads make blocking cheap).
-- `ResolutionStrategy` interface so probabilistic matching slots in later.
+- `ResolutionStrategy` interface designed for **candidate scoring** (candidates in → scored match decisions out), not boolean matching — so the probabilistic matcher in slice 2 is a new implementation, not a redesign.
+- Every merge decision records matcher name + confidence (deterministic = 1.0).
+- Suspicious deterministic matches (e.g. an identifier shared by unusually many records) go to the `MatchReview` queue instead of auto-merging; the threshold is configurable per tenant.
 - Concurrency safety: per-tenant Postgres advisory locks around merge operations.
 
 ## REST API (v1 surface)
@@ -72,6 +80,8 @@ GET  /api/v1/guests/{id}/records         its source records
 GET  /api/v1/guests/{id}/explain         why these records are one guest
 POST /api/v1/guests/{id}/unmerge         split a wrong merge
 GET  /api/v1/guests?identifier=...       lookup by normalized identifier
+GET  /api/v1/match-reviews               pending uncertain matches
+POST /api/v1/match-reviews/{id}          confirm or reject a queued match
 ```
 
 Auth v1: per-tenant API keys. SaaS-grade auth (OIDC, SSO) belongs to the commercial layer.
@@ -89,7 +99,7 @@ Auth v1: per-tenant API keys. SaaS-grade auth (OIDC, SSO) belongs to the commerc
 
 ## Out of scope for v1
 
-Timeline, connectors, fuzzy matching, webhooks/eventing, UI/console, OIDC auth, multi-region, GDPR tooling (deletion/export API is a fast-follow candidate — flag in constitution as a known obligation).
+The probabilistic *matcher implementation* (slice 2 — but its data-model hooks ship in v1), timeline, connectors, webhooks/eventing, UI/console, OIDC auth, multi-region, GDPR tooling (deletion/export API is a fast-follow candidate — flag in constitution as a known obligation).
 
 ## Workflow
 

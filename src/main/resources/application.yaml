@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: guestgraph
+  threads:
+    virtual:
+      enabled: true
+  mvc:
+    problemdetails:
+      enabled: true
+  flyway:
+    enabled: true
+  docker:
+    compose:
+      lifecycle-management: start_only
+
+server:
+  port: 8080

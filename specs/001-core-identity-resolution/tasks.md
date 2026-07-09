@@ -27,10 +27,10 @@ increment.
 
 **Purpose**: Bootable Spring Boot 4 / Java 25 project skeleton
 
-- [ ] T001 Create Maven project: `pom.xml` (Spring Boot 4 parent, Java 25; starters: web, validation, data-jdbc, flyway, postgresql driver; libphonenumber; test: spring-boot-starter-test, testcontainers-postgresql, spring-boot-testcontainers), Maven wrapper `mvnw`/`.mvn/`, and `.gitignore`
-- [ ] T002 Create `src/main/java/io/guestgraph/GuestGraphApplication.java` and `src/main/resources/application.yaml` (virtual threads on, `spring.mvc.problemdetails.enabled=true`, Flyway enabled, datasource via Docker Compose support)
-- [ ] T003 [P] Create `compose.yaml` (PostgreSQL 17) and local-dev seed for tenant `demo` + API key `demo-key` (dev profile only, e.g. `src/main/resources/application-local.yaml` + seed SQL)
-- [ ] T004 [P] Create CI workflow `.github/workflows/ci.yml` running `./mvnw verify` (Docker available for Testcontainers)
+- [X] T001 Create Maven project: `pom.xml` (Spring Boot 4 parent, Java 25; starters: web, validation, data-jdbc, flyway, postgresql driver; libphonenumber; test: spring-boot-starter-test, testcontainers-postgresql, spring-boot-testcontainers), Maven wrapper `mvnw`/`.mvn/`, and `.gitignore`
+- [X] T002 Create `src/main/java/io/guestgraph/GuestGraphApplication.java` and `src/main/resources/application.yaml` (virtual threads on, `spring.mvc.problemdetails.enabled=true`, Flyway enabled, datasource via Docker Compose support)
+- [X] T003 [P] Create `compose.yaml` (PostgreSQL 18) and local-dev seed for tenant `demo` + API key `demo-key` (dev profile only, e.g. `src/main/resources/application-local.yaml` + seed SQL)
+- [X] T004 [P] Create CI workflow `.github/workflows/ci.yml` running `./mvnw verify` (Docker available for Testcontainers)
 
 ---
 

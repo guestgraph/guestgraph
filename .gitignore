@@ -9,4 +9,15 @@ target/
 
 # Env / secrets
 .env
+.env.*
 *.local
+
+# Build artifacts
+*.class
+!.mvn/wrapper/maven-wrapper.jar
+
+# OS / editor noise
+Thumbs.db
+*.log
+*.tmp
+*.swp

@@ -24,7 +24,7 @@ schema migration.
 **Primary Dependencies**: Spring Boot 4 (web, validation, data-jdbc), Flyway (schema
 migrations), libphonenumber (E.164 phone normalization), Jackson (JSON payload handling)
 
-**Storage**: PostgreSQL 17 — relational schema + `jsonb` for immutable raw payloads;
+**Storage**: PostgreSQL 18 (always latest released major) — relational schema + `jsonb` for immutable raw payloads;
 per-tenant advisory locks (`pg_advisory_xact_lock`) around merge operations
 
 **Testing**: JUnit 5 + AssertJ; resolution engine via table-driven scenario tests (TDD);

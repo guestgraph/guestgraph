@@ -120,7 +120,8 @@ src/
 │   │   │                             #   DeterministicMatcher, MergeService, UnmergeService,
 │   │   │                             #   ExplainService, advisory-lock guard
 │   │   ├── survivorship/             # golden-profile derivation rules
-│   │   └── persistence/              # JdbcClient DAOs, explicit SQL (all tenant-scoped)
+│   │   └── persistence/              # JPA entities/repos + MapStruct, guardrailed (R1);
+│   │                                 #   JdbcClient corner for locks + jsonb SQL
 │   └── resources/
 │       ├── application.yaml
 │       └── db/migration/             # Flyway V1__*.sql ...

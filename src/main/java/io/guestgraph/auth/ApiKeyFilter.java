@@ -1,7 +1,7 @@
 package io.guestgraph.auth;
 
 import io.guestgraph.domain.Tenant;
-import io.guestgraph.persistence.TenantDao;
+import io.guestgraph.persistence.TenantStore;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,11 +24,11 @@ public class ApiKeyFilter extends OncePerRequestFilter {
 
     public static final String API_KEY_HEADER = "X-API-Key";
 
-    private final TenantDao tenantDao;
+    private final TenantStore tenantStore;
     private final ObjectMapper mapper;
 
-    public ApiKeyFilter(TenantDao tenantDao, ObjectMapper mapper) {
-        this.tenantDao = tenantDao;
+    public ApiKeyFilter(TenantStore tenantStore, ObjectMapper mapper) {
+        this.tenantStore = tenantStore;
         this.mapper = mapper;
     }
 
@@ -45,7 +45,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
             unauthorized(response, "Missing " + API_KEY_HEADER + " header");
             return;
         }
-        Optional<Tenant> tenant = tenantDao.findByApiKeyHash(Sha256.hex(apiKey));
+        Optional<Tenant> tenant = tenantStore.findByApiKeyHash(Sha256.hex(apiKey));
         if (tenant.isEmpty()) {
             unauthorized(response, "Unknown or revoked API key");
             return;

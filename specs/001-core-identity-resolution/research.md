@@ -6,21 +6,36 @@ The Technical Context contains no `NEEDS CLARIFICATION` items — language, fram
 datastore, build tool, and testing approach are fixed by the constitution and the approved
 design doc. Research therefore resolves the remaining *implementation-level* choices.
 
-## R1. Persistence approach: JdbcClient DAOs with explicit SQL (not JPA/Hibernate)
+## R1. Persistence approach: JPA + MapStruct with guardrails
 
-- **Decision**: Hand-written DAOs on Spring's `JdbcClient` with explicit SQL for every
-  statement — including simple CRUD. No ORM entities, no Spring Data repository interfaces.
-- **Rationale**: The domain is insert-heavy and audit-shaped (immutable records, append-only
-  events). JPA's dirty-checking/entity-mutation model works *against* immutability and makes
-  accidental UPDATEs easy. Explicit SQL also makes tenant isolation reviewable line by line:
-  every DAO method takes `tenantId` and every statement carries `WHERE tenant_id = ...` —
-  a guarantee that repository scaffolding like `CrudRepository.findById(id)` (no tenant
-  parameter) would undermine. Advisory-lock transaction boundaries stay explicit too.
-- **Alternatives considered**: JPA/Hibernate (rejected: mutation-oriented, harder to reason
-  about SQL for locks and jsonb); jOOQ (rejected: extra codegen + license complexity for an
-  Apache-2.0 OSS core, overkill for ~8 tables); Spring Data JDBC repositories (originally
-  planned for simple CRUD, dropped during implementation: its derived methods bypass the
-  tenant-first signature convention, reintroducing the cross-tenant footgun).
+- **Decision**: JPA entities + Spring Data repositories + MapStruct, constrained so the
+  original safety goals survive:
+  - Repositories extend only the `Repository<T, ID>` **marker interface** — never
+    `CrudRepository`/`JpaRepository`, whose `findById(id)` has no tenant parameter.
+  - **Every repository method is an explicit `@Query`** (JPQL) with the tenant predicate
+    visible in the query text; no derived query methods. The rare tenant-less lookup
+    (e.g. API-key → tenant) carries `@TenantAgnostic` with a justification.
+  - `@Immutable` on append-only entities (`source_record`, `record_identifier`,
+    `merge_event`, `tenant`) — Hibernate refuses UPDATEs; the DB trigger (R2) backstops.
+  - MapStruct (`unmappedTargetPolicy = ERROR`) generates entity → domain-record mapping;
+    a forgotten field fails the build. Writes construct immutable entities directly.
+  - **ArchUnit tests enforce all of the above** at build time (`PersistenceRulesTest`):
+    no CrudRepository scaffolding; tenantId on every repo method; JPA confined to the
+    persistence package.
+  - `JdbcClient` remains for the explicit-SQL corner: per-tenant advisory locks
+    (`TenantLock`) and jsonb-specific statements.
+- **Rationale**: The first implementation used hand-written `JdbcClient` DAOs with explicit
+  SQL everywhere. That maximized reviewability but cost ~750 lines of mapper/CRUD
+  boilerplate and put a maintenance and contribution barrier around routine persistence.
+  The risks that motivated it — accidental UPDATEs on immutable data, tenant-predicate
+  omission — are mechanically enforced instead (marker interface + `@Immutable` +
+  ArchUnit), keeping the guarantees while restoring the persistence dialect enterprise
+  Java contributors expect.
+- **Alternatives considered**: JdbcClient DAOs everywhere (first implementation, replaced:
+  boilerplate without added safety once guardrails are mechanical); jOOQ (rejected: extra
+  codegen + license complexity for an Apache-2.0 OSS core, overkill for ~8 tables);
+  unconstrained JPA/Spring Data (rejected: `CrudRepository` scaffolding and derived
+  queries bypass tenant scoping; dirty checking invites accidental UPDATEs).
 
 ## R2. Raw payload storage: `jsonb` column, insert-only, DB-level guard
 

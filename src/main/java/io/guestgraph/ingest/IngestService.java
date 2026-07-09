@@ -6,9 +6,9 @@ import io.guestgraph.domain.IngestStatus;
 import io.guestgraph.domain.SourceRecord;
 import io.guestgraph.domain.SourceSystem;
 import io.guestgraph.persistence.Jsons;
-import io.guestgraph.persistence.ResolutionLinkDao;
-import io.guestgraph.persistence.SourceRecordDao;
-import io.guestgraph.persistence.SourceSystemDao;
+import io.guestgraph.persistence.SourceRecordStore;
+import io.guestgraph.persistence.SourceSystemStore;
+import io.guestgraph.persistence.repo.ResolutionLinkRepo;
 import io.guestgraph.resolution.ResolutionEngine;
 import io.guestgraph.resolution.ResolutionOutcome;
 import io.guestgraph.resolution.TenantLock;
@@ -26,20 +26,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class IngestService {
 
-    private final SourceSystemDao sourceSystemDao;
-    private final SourceRecordDao sourceRecordDao;
-    private final ResolutionLinkDao linkDao;
+    private final SourceSystemStore sourceSystemStore;
+    private final SourceRecordStore sourceRecordStore;
+    private final ResolutionLinkRepo linkRepo;
     private final RecordExtractor extractor;
     private final ResolutionEngine engine;
     private final TenantLock tenantLock;
     private final Jsons jsons;
 
-    public IngestService(SourceSystemDao sourceSystemDao, SourceRecordDao sourceRecordDao,
-            ResolutionLinkDao linkDao, RecordExtractor extractor, ResolutionEngine engine,
+    public IngestService(SourceSystemStore sourceSystemStore, SourceRecordStore sourceRecordStore,
+            ResolutionLinkRepo linkRepo, RecordExtractor extractor, ResolutionEngine engine,
             TenantLock tenantLock, Jsons jsons) {
-        this.sourceSystemDao = sourceSystemDao;
-        this.sourceRecordDao = sourceRecordDao;
-        this.linkDao = linkDao;
+        this.sourceSystemStore = sourceSystemStore;
+        this.sourceRecordStore = sourceRecordStore;
+        this.linkRepo = linkRepo;
         this.extractor = extractor;
         this.engine = engine;
         this.tenantLock = tenantLock;
@@ -48,14 +48,14 @@ public class IngestService {
 
     @Transactional
     public IngestResult ingest(UUID tenantId, IngestRecordRequest request) {
-        SourceSystem source = sourceSystemDao.findByCode(tenantId, request.sourceSystem())
+        SourceSystem source = sourceSystemStore.findByCode(tenantId, request.sourceSystem())
                 .orElseThrow(() -> new UnknownSourceSystemException(request.sourceSystem()));
 
         tenantLock.acquire(tenantId);
 
-        Optional<UUID> existing = sourceRecordDao.findIdByExternalKey(tenantId, source.id(), request.externalKey());
+        Optional<UUID> existing = sourceRecordStore.findIdByExternalKey(tenantId, source.id(), request.externalKey());
         if (existing.isPresent()) {
-            UUID guestId = linkDao.guestIdByRecord(tenantId, existing.get()).orElse(null);
+            UUID guestId = linkRepo.guestIdByRecord(tenantId, existing.get()).orElse(null);
             return new IngestResult(request.externalKey(), existing.get(), guestId,
                     IngestStatus.DUPLICATE_IGNORED, java.util.List.of(), null);
         }
@@ -65,7 +65,7 @@ public class IngestService {
                 request.externalKey(), jsons.write(request.payload()), extraction.extracted(),
                 extraction.identifiers(), request.recordTimestamp(), extraction.needsReview(),
                 extraction.reasons(), Instant.now());
-        sourceRecordDao.insert(record);
+        sourceRecordStore.insert(record);
 
         ResolutionOutcome outcome = engine.resolve(record);
         IngestStatus status = record.needsReview() || !outcome.pendingReviewIds().isEmpty()

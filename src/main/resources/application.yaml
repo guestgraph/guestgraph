@@ -9,6 +9,10 @@ spring:
       enabled: true
   flyway:
     enabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
   docker:
     compose:
       lifecycle-management: start_only

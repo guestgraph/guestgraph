@@ -2,13 +2,13 @@ package io.guestgraph.api;
 
 import io.guestgraph.auth.TenantContext;
 import io.guestgraph.domain.SourceSystem;
-import io.guestgraph.persistence.SourceSystemDao;
+import io.guestgraph.persistence.SourceSystemStore;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import java.time.Instant;
 import java.util.UUID;
-import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,10 +34,10 @@ public class SourceSystemController {
         }
     }
 
-    private final SourceSystemDao sourceSystemDao;
+    private final SourceSystemStore sourceSystemStore;
 
-    public SourceSystemController(SourceSystemDao sourceSystemDao) {
-        this.sourceSystemDao = sourceSystemDao;
+    public SourceSystemController(SourceSystemStore sourceSystemStore) {
+        this.sourceSystemStore = sourceSystemStore;
     }
 
     @PostMapping
@@ -45,8 +45,8 @@ public class SourceSystemController {
     public SourceSystemResponse register(@Valid @RequestBody CreateRequest request) {
         try {
             return SourceSystemResponse.of(
-                    sourceSystemDao.insert(TenantContext.tenantId(), request.code(), request.name()));
-        } catch (DuplicateKeyException e) {
+                    sourceSystemStore.insert(TenantContext.tenantId(), request.code(), request.name()));
+        } catch (DataIntegrityViolationException e) {
             throw new ConflictException("Source system '" + request.code() + "' is already registered");
         }
     }

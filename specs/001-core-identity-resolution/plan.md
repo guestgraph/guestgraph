@@ -21,15 +21,16 @@ schema migration.
 
 **Language/Version**: Java 25 (virtual threads enabled: `spring.threads.virtual.enabled=true`)
 
-**Primary Dependencies**: Spring Boot 4 (web, validation, data-jdbc), Flyway (schema
-migrations), libphonenumber (E.164 phone normalization), Jackson (JSON payload handling)
+**Primary Dependencies**: Spring Boot 4 (web, validation, data-jpa), MapStruct
+(entity → domain mapping, research R1), Flyway (schema migrations), libphonenumber
+(E.164 phone normalization), Jackson (JSON payload handling)
 
 **Storage**: PostgreSQL 18 (always latest released major) — relational schema + `jsonb` for immutable raw payloads;
 per-tenant advisory locks (`pg_advisory_xact_lock`) around merge operations
 
 **Testing**: JUnit 5 + AssertJ; resolution engine via table-driven scenario tests (TDD);
-Testcontainers (PostgreSQL) for repository and API integration tests; Spring Boot Test +
-MockMvc/RestTestClient for the API layer
+Testcontainers (PostgreSQL) for repository and API integration tests; Spring Boot Test with
+`RestClient` against a random-port server for the API layer; ArchUnit persistence guardrails
 
 **Target Platform**: Linux server (JVM 25); local dev via Docker Compose (Postgres)
 
@@ -110,15 +111,16 @@ src/
 │   │   │   ├── RecordIngestController.java
 │   │   │   ├── GuestController.java
 │   │   │   ├── MatchReviewController.java
-│   │   │   └── ProblemDetailsExceptionHandler.java   # RFC 9457
+│   │   │   └── ApiExceptionHandler.java              # RFC 9457
 │   │   ├── auth/                     # API-key filter, TenantContext
 │   │   ├── domain/                   # entities + value types (Guest, SourceRecord,
 │   │   │                             #   Identifier, MergeEvent, MatchReview, ...)
 │   │   ├── ingest/                   # payload parsing, field extraction, needs_review
 │   │   ├── normalize/                # email/phone/id-document normalizers
 │   │   ├── resolution/               # the engine: ResolutionStrategy (candidate scoring),
-│   │   │                             #   DeterministicMatcher, MergeService, UnmergeService,
-│   │   │                             #   ExplainService, advisory-lock guard
+│   │   │                             #   DeterministicMatcher, ResolutionEngine + GraphPort,
+│   │   │                             #   Unmerge/Explain/ReviewDecision operations,
+│   │   │                             #   GraphMutationService, advisory-lock guard
 │   │   ├── survivorship/             # golden-profile derivation rules
 │   │   └── persistence/              # JPA entities/repos + MapStruct, guardrailed (R1);
 │   │                                 #   JdbcClient corner for locks + jsonb SQL

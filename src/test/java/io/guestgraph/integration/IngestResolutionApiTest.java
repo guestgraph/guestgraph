@@ -128,6 +128,36 @@ class IngestResolutionApiTest extends PostgresIntegrationTest {
   }
 
   @Test
+  void recordWithOneMalformedAndOneValidIdentifierResolvesOnTheValidOne() {
+    JsonNode first =
+        ingestOne(
+            TENANT_A_KEY,
+            """
+                {"sourceSystem":"opera-pms","externalKey":"mix-1","payload":{"phone":"+41791234567"}}
+                """);
+
+    // Spec edge case: malformed email + valid phone → resolves via the phone, flagged, never
+    // dropped.
+    JsonNode mixed =
+        ingestOne(
+            TENANT_A_KEY,
+            """
+                {"sourceSystem":"loyalty-db","externalKey":"mix-2",
+                 "payload":{"email":"not-an-email","phone":"+41 79 123 45 67"}}
+                """);
+
+    assertThat(mixed.get("status").asString()).isEqualTo("ATTACHED");
+    assertThat(mixed.get("guestId").asString()).isEqualTo(first.get("guestId").asString());
+    assertThat(mixed.get("needsReview").asBoolean()).isTrue();
+    JsonNode reasons =
+        jdbc.sql(
+                "SELECT needs_review_reasons::text AS r FROM source_record WHERE external_key = 'mix-2'")
+            .query((rs, i) -> json(rs.getString("r")))
+            .single();
+    assertThat(reasons.toString()).contains("email");
+  }
+
+  @Test
   void unparseableBodyIsRejectedAndNothingStored() {
     ResponseEntity<String> response =
         api(TENANT_A_KEY)

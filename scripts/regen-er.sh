@@ -33,11 +33,18 @@ container=$(docker run -d --rm -e POSTGRES_USER=guestgraph -e POSTGRES_PASSWORD=
   -e POSTGRES_DB=guestgraph -p "${PG_PORT}:5432" "$PG_IMAGE")
 trap 'docker stop "$container" >/dev/null' EXIT
 
+# pg_isready is not enough: the postgres image answers it from the temporary
+# initdb bootstrap server before the guestgraph database exists. Require a
+# real query against the target database instead.
 echo "waiting for postgres..."
-for _ in $(seq 1 60); do
-  docker exec "$container" pg_isready -U guestgraph -d guestgraph >/dev/null 2>&1 && break
+ready=false
+for _ in $(seq 1 120); do
+  if docker exec "$container" psql -U guestgraph -d guestgraph -c 'select 1' >/dev/null 2>&1; then
+    ready=true; break
+  fi
   sleep 0.5
 done
+$ready || { echo "postgres did not become ready" >&2; exit 1; }
 
 # Apply migrations in Flyway version order (V1, V2, ... — sort -V handles V10 correctly)
 for f in $(ls src/main/resources/db/migration/V*.sql | sort -V); do

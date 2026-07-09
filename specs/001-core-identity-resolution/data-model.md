@@ -7,14 +7,28 @@ locality). All tables carry `tenant_id` and every uniqueness constraint is compo
 
 ## Entity overview
 
+```mermaid
+erDiagram
+    tenant ||--o{ api_key : "authenticates via"
+    tenant ||--o{ source_system : "registers"
+    tenant ||--o{ guest : "owns"
+    source_system ||--o{ source_record : "delivers"
+    source_record ||--o{ record_identifier : "contributed"
+    source_record ||--o| resolution_link : "belongs to guest via"
+    guest ||--o{ resolution_link : "assembled from"
+    guest ||--o{ identifier : "matched by"
+    merge_event ||--o{ resolution_link : "created"
+    source_record ||--o{ match_review : "parked as"
+    guest ||--o{ match_review : "candidate in"
 ```
-tenant 1──n api_key
-tenant 1──n source_system 1──n source_record n──1 guest      (via resolution_link)
-tenant 1──n guest 1──n identifier
-tenant 1──n merge_event                                       (audit, append-only)
-tenant 1──n match_review
-source_record 1──n record_identifier                          (what the record contributed)
-```
+
+Append-only audit: `merge_event` (per tenant); `match_review` decisions reference the
+`merge_event` they produced. Column detail lives in the tables below — the diagram shows
+relationships only, on purpose: relationships are stable, field lists drift.
+
+> Regenerate/verify against a live schema:
+> `mermerd -c "postgresql://guestgraph:guestgraph@localhost:5432/guestgraph" -s public --useAllTables`
+> ([mermerd](https://github.com/KarnerTh/mermerd) emits a Mermaid `erDiagram` from Postgres.)
 
 ## tenant
 
@@ -161,13 +175,20 @@ INDEX (tenant_id, status, created_at) — queue listing.
 
 ### State transitions
 
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING : suspicious match parked at ingest
+    PENDING --> CONFIRMED : confirm — writes REVIEW_CONFIRM merge_event, executes merge
+    PENDING --> REJECTED : reject — writes REVIEW_REJECT merge_event, no merge
+    CONFIRMED --> [*]
+    REJECTED --> [*]
+    note right of PENDING
+        Single-transition invariant —
+        a second decision returns 409
+    end note
 ```
-match_review:  PENDING ──confirm──▶ CONFIRMED   (writes REVIEW_CONFIRM merge_event, executes merge)
-                        └─reject──▶ REJECTED    (writes REVIEW_REJECT merge_event, no merge)
-               CONFIRMED/REJECTED are terminal; a second decision → 409.
 
-source_record: (needs_review = true) ──future review flow──▶ (false)   [only mutable aspect]
-```
+`source_record`: `needs_review = true` → `false` via a future review flow — its only mutable aspect.
 
 ## Validation rules (from FRs)
 

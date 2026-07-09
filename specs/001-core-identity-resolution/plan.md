@@ -138,6 +138,39 @@ module until slice 2 forces modularization — do not pre-modularize"). Packages
 separate the engine (`resolution`, `normalize`, `survivorship`) from transport (`api`, `auth`)
 and storage (`persistence`), keeping the engine unit-testable without Spring or a database.
 
+### Component view
+
+```mermaid
+flowchart LR
+    C((API client))
+    subgraph service["Spring Boot service (single module)"]
+        AUTH["auth<br/>ApiKeyFilter → tenant"]
+        API["api<br/>REST controllers, RFC 9457"]
+        ING["ingest<br/>parse, extract, needs_review"]
+        NORM["normalize<br/>email / phone / id-document"]
+        subgraph engine["engine (no Spring, no DB — pure)"]
+            ENG["resolution<br/>ResolutionEngine + ResolutionStrategy"]
+            SURV["survivorship<br/>GoldenProfileDeriver"]
+        end
+        PORT{{"GraphPort<br/>(storage seam)"}}
+        PERS["persistence<br/>JPA repos + MapStruct;<br/>JdbcClient: locks + jsonb"]
+    end
+    PG[("PostgreSQL<br/>Flyway schema")]
+
+    C --> AUTH --> API
+    API --> ING
+    ING --> NORM
+    ING --> ENG
+    ENG --> SURV
+    ENG --> PORT
+    PORT -.implemented by.-> PERS
+    PERS --> PG
+```
+
+The engine subgraph depends only on `GraphPort` — the table-driven scenario tests run it
+against the in-memory `InMemoryGraph`; production wires `PostgresGraph` (ArchUnit enforces
+that JPA never leaks past `persistence`).
+
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**

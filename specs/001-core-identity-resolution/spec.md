@@ -27,6 +27,33 @@ A hotel group's integration engineer registers each of their systems (property m
 5. **Given** a request that cannot be parsed at all, **When** it is submitted, **Then** it is rejected with a machine-readable problem-details error explaining exactly what was wrong, and nothing is stored.
 6. **Given** records ingested concurrently that would merge the same guests, **When** ingestion completes, **Then** the resulting guest graph is consistent — no duplicated or half-merged guests.
 
+**Resolution flow** (behavioral contract of this story):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Source system (client)
+    participant G as GuestGraph
+    participant R as Resolution
+    C->>G: submit guest record
+    G->>G: store original immutably
+    G->>G: extract + normalize identifiers
+    G->>R: resolve record
+    R->>R: find guests sharing a strong identifier
+    alt no match
+        R->>R: create new guest (CREATE)
+    else one match
+        R->>R: attach record to guest (ATTACH)
+    else several matches
+        R->>R: merge guests transitively (MERGE)
+    end
+    opt identifier shared by more records than the tenant's review threshold
+        R->>R: park suspicious candidate as PENDING match_review<br/>(record still resolves via its safe matches)
+    end
+    R->>R: recompute golden profile (survivorship)
+    G-->>C: resolved guest id + any review ids
+```
+
 ---
 
 ### User Story 2 - Query Golden Profiles and Look Up Guests (Priority: P2)

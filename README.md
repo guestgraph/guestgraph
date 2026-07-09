@@ -12,6 +12,26 @@ Guest data in hospitality is scattered — PMS, POS, booking engines, loyalty pr
 - **Unmerge** safely when resolution got it wrong — every merge is reversible
 - **Query** unified golden profiles and their source records, per tenant
 
+## How it fits together
+
+```mermaid
+flowchart TB
+    subgraph commercial["Commercial — guestgraph.io (planned)"]
+        SAAS["Managed hosting · MCP server · console"]
+    end
+    subgraph oss["Open source — Apache 2.0 (this org)"]
+        CONN["Connectors — PMS, POS, booking ..."]
+        TL["Timeline — unified guest journey"]
+        CORE["Core — identity resolution engine<br/>+ guest graph + REST API"]
+    end
+    PG[("PostgreSQL")]
+
+    SAAS --> CONN & TL
+    CONN --> CORE
+    TL --> CORE
+    CORE --> PG
+```
+
 ## Status
 
 🚧 **Early development.** The core identity resolution service is being built spec-first — see [`docs/`](docs/) and [`.specify/`](.specify/) for the design and specs.

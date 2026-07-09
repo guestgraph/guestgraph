@@ -21,92 +21,99 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "merge_event")
 public class MergeEventEntity {
 
-    @Id
-    private UUID id;
-    private UUID tenantId;
+  @Id private UUID id;
+  private UUID tenantId;
 
-    @Enumerated(EnumType.STRING)
-    private MergeEventKind kind;
+  @Enumerated(EnumType.STRING)
+  private MergeEventKind kind;
 
-    private UUID guestId;
+  private UUID guestId;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    private List<UUID> absorbedGuestIds;
+  @JdbcTypeCode(SqlTypes.JSON)
+  private List<UUID> absorbedGuestIds;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    private List<UUID> sourceRecordIds;
+  @JdbcTypeCode(SqlTypes.JSON)
+  private List<UUID> sourceRecordIds;
 
-    private String matcherName;
-    private BigDecimal confidence;
+  private String matcherName;
+  private BigDecimal confidence;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, Object> evidence;
+  @JdbcTypeCode(SqlTypes.JSON)
+  private Map<String, Object> evidence;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    private List<UUID> excludedGuestIds;
+  @JdbcTypeCode(SqlTypes.JSON)
+  private List<UUID> excludedGuestIds;
 
-    private Instant createdAt;
+  private Instant createdAt;
 
-    protected MergeEventEntity() {
-    }
+  protected MergeEventEntity() {}
 
-    public MergeEventEntity(UUID id, UUID tenantId, MergeEventKind kind, UUID guestId, List<UUID> absorbedGuestIds,
-            List<UUID> sourceRecordIds, String matcherName, BigDecimal confidence, Map<String, Object> evidence,
-            List<UUID> excludedGuestIds, Instant createdAt) {
-        this.id = id;
-        this.tenantId = tenantId;
-        this.kind = kind;
-        this.guestId = guestId;
-        this.absorbedGuestIds = absorbedGuestIds;
-        this.sourceRecordIds = sourceRecordIds;
-        this.matcherName = matcherName;
-        this.confidence = confidence;
-        this.evidence = evidence;
-        this.excludedGuestIds = excludedGuestIds;
-        this.createdAt = createdAt;
-    }
+  public MergeEventEntity(
+      UUID id,
+      UUID tenantId,
+      MergeEventKind kind,
+      UUID guestId,
+      List<UUID> absorbedGuestIds,
+      List<UUID> sourceRecordIds,
+      String matcherName,
+      BigDecimal confidence,
+      Map<String, Object> evidence,
+      List<UUID> excludedGuestIds,
+      Instant createdAt) {
+    this.id = id;
+    this.tenantId = tenantId;
+    this.kind = kind;
+    this.guestId = guestId;
+    this.absorbedGuestIds = absorbedGuestIds;
+    this.sourceRecordIds = sourceRecordIds;
+    this.matcherName = matcherName;
+    this.confidence = confidence;
+    this.evidence = evidence;
+    this.excludedGuestIds = excludedGuestIds;
+    this.createdAt = createdAt;
+  }
 
-    public UUID getId() {
-        return id;
-    }
+  public UUID getId() {
+    return id;
+  }
 
-    public UUID getTenantId() {
-        return tenantId;
-    }
+  public UUID getTenantId() {
+    return tenantId;
+  }
 
-    public MergeEventKind getKind() {
-        return kind;
-    }
+  public MergeEventKind getKind() {
+    return kind;
+  }
 
-    public UUID getGuestId() {
-        return guestId;
-    }
+  public UUID getGuestId() {
+    return guestId;
+  }
 
-    public List<UUID> getAbsorbedGuestIds() {
-        return absorbedGuestIds;
-    }
+  public List<UUID> getAbsorbedGuestIds() {
+    return absorbedGuestIds;
+  }
 
-    public List<UUID> getSourceRecordIds() {
-        return sourceRecordIds;
-    }
+  public List<UUID> getSourceRecordIds() {
+    return sourceRecordIds;
+  }
 
-    public String getMatcherName() {
-        return matcherName;
-    }
+  public String getMatcherName() {
+    return matcherName;
+  }
 
-    public BigDecimal getConfidence() {
-        return confidence;
-    }
+  public BigDecimal getConfidence() {
+    return confidence;
+  }
 
-    public Map<String, Object> getEvidence() {
-        return evidence;
-    }
+  public Map<String, Object> getEvidence() {
+    return evidence;
+  }
 
-    public List<UUID> getExcludedGuestIds() {
-        return excludedGuestIds;
-    }
+  public List<UUID> getExcludedGuestIds() {
+    return excludedGuestIds;
+  }
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
 }

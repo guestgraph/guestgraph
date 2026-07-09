@@ -18,28 +18,28 @@ import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 
 /**
- * Entity → domain-record mapping, generated at compile time. unmappedTargetPolicy
- * ERROR fails the build on a forgotten field — no silently dropped data. The write
- * direction is deliberate hand-written entity construction in the stores/adapter.
+ * Entity → domain-record mapping, generated at compile time. unmappedTargetPolicy ERROR fails the
+ * build on a forgotten field — no silently dropped data. The write direction is deliberate
+ * hand-written entity construction in the stores/adapter.
  */
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface DomainMappers {
 
-    Tenant toDomain(TenantEntity entity);
+  Tenant toDomain(TenantEntity entity);
 
-    SourceSystem toDomain(SourceSystemEntity entity);
+  SourceSystem toDomain(SourceSystemEntity entity);
 
-    Guest toDomain(GuestEntity entity);
+  Guest toDomain(GuestEntity entity);
 
-    MergeEvent toDomain(MergeEventEntity entity);
+  MergeEvent toDomain(MergeEventEntity entity);
 
-    @Mapping(target = "sourceSystemId", source = "sourceSystem.id")
-    @Mapping(target = "sourceSystemCode", source = "sourceSystem.code")
-    @Mapping(target = "payloadJson", source = "payload")
-    SourceRecord toDomain(SourceRecordEntity entity);
+  @Mapping(target = "sourceSystemId", source = "sourceSystem.id")
+  @Mapping(target = "sourceSystemCode", source = "sourceSystem.code")
+  @Mapping(target = "payloadJson", source = "payload")
+  SourceRecord toDomain(SourceRecordEntity entity);
 
-    List<SourceRecord> toDomainRecords(List<SourceRecordEntity> entities);
+  List<SourceRecord> toDomainRecords(List<SourceRecordEntity> entities);
 
-    @Mapping(target = "value", source = "valueNormalized")
-    NormalizedIdentifier toDomain(RecordIdentifierEntity entity);
+  @Mapping(target = "value", source = "valueNormalized")
+  NormalizedIdentifier toDomain(RecordIdentifierEntity entity);
 }

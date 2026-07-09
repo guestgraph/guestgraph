@@ -9,11 +9,15 @@ import org.springframework.data.repository.query.Param;
 
 public interface MatchReviewRepo extends Repository<MatchReviewEntity, UUID> {
 
-    @Query("""
+  @Query(
+      """
             select count(mr) > 0 from MatchReviewEntity mr
             where mr.tenantId = :tenantId and mr.sourceRecordId = :sourceRecordId
               and mr.candidateGuestId = :candidateGuestId and mr.status = :status
             """)
-    boolean existsByStatus(@Param("tenantId") UUID tenantId, @Param("sourceRecordId") UUID sourceRecordId,
-            @Param("candidateGuestId") UUID candidateGuestId, @Param("status") ReviewStatus status);
+  boolean existsByStatus(
+      @Param("tenantId") UUID tenantId,
+      @Param("sourceRecordId") UUID sourceRecordId,
+      @Param("candidateGuestId") UUID candidateGuestId,
+      @Param("status") ReviewStatus status);
 }

@@ -18,48 +18,50 @@ import org.hibernate.annotations.Immutable;
 @Table(name = "record_identifier")
 public class RecordIdentifierEntity {
 
-    @Id
-    private UUID id;
-    private UUID tenantId;
+  @Id private UUID id;
+  private UUID tenantId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "source_record_id")
-    private SourceRecordEntity sourceRecord;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "source_record_id")
+  private SourceRecordEntity sourceRecord;
 
-    @Enumerated(EnumType.STRING)
-    private IdentifierType type;
+  @Enumerated(EnumType.STRING)
+  private IdentifierType type;
 
-    private String valueNormalized;
+  private String valueNormalized;
 
-    protected RecordIdentifierEntity() {
-    }
+  protected RecordIdentifierEntity() {}
 
-    public RecordIdentifierEntity(UUID id, UUID tenantId, SourceRecordEntity sourceRecord, IdentifierType type,
-            String valueNormalized) {
-        this.id = id;
-        this.tenantId = tenantId;
-        this.sourceRecord = sourceRecord;
-        this.type = type;
-        this.valueNormalized = valueNormalized;
-    }
+  public RecordIdentifierEntity(
+      UUID id,
+      UUID tenantId,
+      SourceRecordEntity sourceRecord,
+      IdentifierType type,
+      String valueNormalized) {
+    this.id = id;
+    this.tenantId = tenantId;
+    this.sourceRecord = sourceRecord;
+    this.type = type;
+    this.valueNormalized = valueNormalized;
+  }
 
-    public UUID getId() {
-        return id;
-    }
+  public UUID getId() {
+    return id;
+  }
 
-    public UUID getTenantId() {
-        return tenantId;
-    }
+  public UUID getTenantId() {
+    return tenantId;
+  }
 
-    public SourceRecordEntity getSourceRecord() {
-        return sourceRecord;
-    }
+  public SourceRecordEntity getSourceRecord() {
+    return sourceRecord;
+  }
 
-    public IdentifierType getType() {
-        return type;
-    }
+  public IdentifierType getType() {
+    return type;
+  }
 
-    public String getValueNormalized() {
-        return valueNormalized;
-    }
+  public String getValueNormalized() {
+    return valueNormalized;
+  }
 }

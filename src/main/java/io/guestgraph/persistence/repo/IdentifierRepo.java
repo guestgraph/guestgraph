@@ -11,14 +11,17 @@ import org.springframework.data.repository.query.Param;
 
 public interface IdentifierRepo extends Repository<IdentifierEntity, UUID> {
 
-    @Query("""
+  @Query(
+      """
             select distinct i.guestId from IdentifierEntity i
             where i.tenantId = :tenantId and i.type = :type and i.valueNormalized = :value
             """)
-    List<UUID> guestIdsByIdentifier(@Param("tenantId") UUID tenantId, @Param("type") IdentifierType type,
-            @Param("value") String value);
+  List<UUID> guestIdsByIdentifier(
+      @Param("tenantId") UUID tenantId,
+      @Param("type") IdentifierType type,
+      @Param("value") String value);
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("delete from IdentifierEntity i where i.tenantId = :tenantId and i.guestId = :guestId")
-    int deleteForGuest(@Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId);
+  @Modifying(flushAutomatically = true, clearAutomatically = true)
+  @Query("delete from IdentifierEntity i where i.tenantId = :tenantId and i.guestId = :guestId")
+  int deleteForGuest(@Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId);
 }

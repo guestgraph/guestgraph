@@ -13,33 +13,31 @@ import org.hibernate.annotations.Immutable;
 @Table(name = "tenant")
 public class TenantEntity {
 
-    @Id
-    private UUID id;
-    private String slug;
-    private String name;
-    private int reviewThreshold;
-    private Instant createdAt;
+  @Id private UUID id;
+  private String slug;
+  private String name;
+  private int reviewThreshold;
+  private Instant createdAt;
 
-    protected TenantEntity() {
-    }
+  protected TenantEntity() {}
 
-    public UUID getId() {
-        return id;
-    }
+  public UUID getId() {
+    return id;
+  }
 
-    public String getSlug() {
-        return slug;
-    }
+  public String getSlug() {
+    return slug;
+  }
 
-    public String getName() {
-        return name;
-    }
+  public String getName() {
+    return name;
+  }
 
-    public int getReviewThreshold() {
-        return reviewThreshold;
-    }
+  public int getReviewThreshold() {
+    return reviewThreshold;
+  }
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
 }

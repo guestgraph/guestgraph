@@ -10,15 +10,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class TenantStore {
 
-    private final TenantRepo tenantRepo;
-    private final DomainMappers mappers;
+  private final TenantRepo tenantRepo;
+  private final DomainMappers mappers;
 
-    public TenantStore(TenantRepo tenantRepo, DomainMappers mappers) {
-        this.tenantRepo = tenantRepo;
-        this.mappers = mappers;
-    }
+  public TenantStore(TenantRepo tenantRepo, DomainMappers mappers) {
+    this.tenantRepo = tenantRepo;
+    this.mappers = mappers;
+  }
 
-    public Optional<Tenant> findByApiKeyHash(String keyHash) {
-        return tenantRepo.findByApiKeyHash(keyHash).map(mappers::toDomain);
-    }
+  public Optional<Tenant> findByApiKeyHash(String keyHash) {
+    return tenantRepo.findByApiKeyHash(keyHash).map(mappers::toDomain);
+  }
 }

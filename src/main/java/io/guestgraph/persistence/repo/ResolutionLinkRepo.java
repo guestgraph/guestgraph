@@ -11,29 +11,39 @@ import org.springframework.data.repository.query.Param;
 
 public interface ResolutionLinkRepo extends Repository<ResolutionLinkEntity, UUID> {
 
-    @Query("""
+  @Query(
+      """
             select l.guestId from ResolutionLinkEntity l
             where l.tenantId = :tenantId and l.sourceRecordId = :sourceRecordId
             """)
-    Optional<UUID> guestIdByRecord(@Param("tenantId") UUID tenantId, @Param("sourceRecordId") UUID sourceRecordId);
+  Optional<UUID> guestIdByRecord(
+      @Param("tenantId") UUID tenantId, @Param("sourceRecordId") UUID sourceRecordId);
 
-    @Query("select count(l) from ResolutionLinkEntity l where l.tenantId = :tenantId and l.guestId = :guestId")
-    int countByGuest(@Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId);
+  @Query(
+      "select count(l) from ResolutionLinkEntity l where l.tenantId = :tenantId and l.guestId = :guestId")
+  int countByGuest(@Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId);
 
-    /** Re-points all links of {@code fromGuestId} to {@code toGuestId} (merge). */
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("""
+  /** Re-points all links of {@code fromGuestId} to {@code toGuestId} (merge). */
+  @Modifying(flushAutomatically = true, clearAutomatically = true)
+  @Query(
+      """
             update ResolutionLinkEntity l set l.guestId = :toGuestId, l.createdByEventId = :eventId
             where l.tenantId = :tenantId and l.guestId = :fromGuestId
             """)
-    int moveGuest(@Param("tenantId") UUID tenantId, @Param("fromGuestId") UUID fromGuestId,
-            @Param("toGuestId") UUID toGuestId, @Param("eventId") UUID eventId);
+  int moveGuest(
+      @Param("tenantId") UUID tenantId,
+      @Param("fromGuestId") UUID fromGuestId,
+      @Param("toGuestId") UUID toGuestId,
+      @Param("eventId") UUID eventId);
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("""
+  @Modifying(flushAutomatically = true, clearAutomatically = true)
+  @Query(
+      """
             delete from ResolutionLinkEntity l
             where l.tenantId = :tenantId and l.guestId = :guestId and l.sourceRecordId in :recordIds
             """)
-    int deleteByRecordIds(@Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId,
-            @Param("recordIds") Collection<UUID> recordIds);
+  int deleteByRecordIds(
+      @Param("tenantId") UUID tenantId,
+      @Param("guestId") UUID guestId,
+      @Param("recordIds") Collection<UUID> recordIds);
 }

@@ -11,38 +11,36 @@ import java.util.UUID;
 @Table(name = "api_key")
 public class ApiKeyEntity {
 
-    @Id
-    private UUID id;
-    private UUID tenantId;
-    private String keyHash;
-    private String label;
-    private Instant createdAt;
-    private Instant revokedAt;
+  @Id private UUID id;
+  private UUID tenantId;
+  private String keyHash;
+  private String label;
+  private Instant createdAt;
+  private Instant revokedAt;
 
-    protected ApiKeyEntity() {
-    }
+  protected ApiKeyEntity() {}
 
-    public UUID getId() {
-        return id;
-    }
+  public UUID getId() {
+    return id;
+  }
 
-    public UUID getTenantId() {
-        return tenantId;
-    }
+  public UUID getTenantId() {
+    return tenantId;
+  }
 
-    public String getKeyHash() {
-        return keyHash;
-    }
+  public String getKeyHash() {
+    return keyHash;
+  }
 
-    public String getLabel() {
-        return label;
-    }
+  public String getLabel() {
+    return label;
+  }
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
 
-    public Instant getRevokedAt() {
-        return revokedAt;
-    }
+  public Instant getRevokedAt() {
+    return revokedAt;
+  }
 }

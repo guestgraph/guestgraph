@@ -18,38 +18,51 @@ import org.springframework.stereotype.Repository;
 @Repository // @Repository (not @Component) for Hibernate→Spring exception translation
 public class SourceRecordStore {
 
-    @PersistenceContext
-    private EntityManager em;
+  @PersistenceContext private EntityManager em;
 
-    private final SourceRecordRepo repo;
-    private final DomainMappers mappers;
+  private final SourceRecordRepo repo;
+  private final DomainMappers mappers;
 
-    public SourceRecordStore(SourceRecordRepo repo, DomainMappers mappers) {
-        this.repo = repo;
-        this.mappers = mappers;
+  public SourceRecordStore(SourceRecordRepo repo, DomainMappers mappers) {
+    this.repo = repo;
+    this.mappers = mappers;
+  }
+
+  /**
+   * Stores the record and its identifier contributions; flushes so the row (and any constraint
+   * violation) is visible to the resolution queries that follow in the same transaction — the old
+   * code's statement ordering, made explicit.
+   */
+  public void insert(SourceRecord record) {
+    SourceSystemEntity sourceSystem =
+        em.getReference(SourceSystemEntity.class, record.sourceSystemId());
+    SourceRecordEntity entity =
+        new SourceRecordEntity(
+            record.id(),
+            record.tenantId(),
+            sourceSystem,
+            record.externalKey(),
+            record.payloadJson(),
+            record.extracted(),
+            record.recordTimestamp(),
+            record.needsReview(),
+            record.needsReviewReasons(),
+            record.receivedAt());
+    for (NormalizedIdentifier identifier : new LinkedHashSet<>(record.identifiers())) {
+      entity.addIdentifier(
+          new RecordIdentifierEntity(
+              UUID.randomUUID(), record.tenantId(), entity, identifier.type(), identifier.value()));
     }
+    em.persist(entity);
+    em.flush();
+  }
 
-    /** Stores the record and its identifier contributions; flushes so the row (and any
-     * constraint violation) is visible to the resolution queries that follow in the
-     * same transaction — the old code's statement ordering, made explicit. */
-    public void insert(SourceRecord record) {
-        SourceSystemEntity sourceSystem = em.getReference(SourceSystemEntity.class, record.sourceSystemId());
-        SourceRecordEntity entity = new SourceRecordEntity(record.id(), record.tenantId(), sourceSystem,
-                record.externalKey(), record.payloadJson(), record.extracted(), record.recordTimestamp(),
-                record.needsReview(), record.needsReviewReasons(), record.receivedAt());
-        for (NormalizedIdentifier identifier : new LinkedHashSet<>(record.identifiers())) {
-            entity.addIdentifier(new RecordIdentifierEntity(UUID.randomUUID(), record.tenantId(), entity,
-                    identifier.type(), identifier.value()));
-        }
-        em.persist(entity);
-        em.flush();
-    }
+  public Optional<UUID> findIdByExternalKey(
+      UUID tenantId, UUID sourceSystemId, String externalKey) {
+    return repo.findIdByExternalKey(tenantId, sourceSystemId, externalKey);
+  }
 
-    public Optional<UUID> findIdByExternalKey(UUID tenantId, UUID sourceSystemId, String externalKey) {
-        return repo.findIdByExternalKey(tenantId, sourceSystemId, externalKey);
-    }
-
-    public List<SourceRecord> findByGuestId(UUID tenantId, UUID guestId) {
-        return mappers.toDomainRecords(repo.findByGuestId(tenantId, guestId));
-    }
+  public List<SourceRecord> findByGuestId(UUID tenantId, UUID guestId) {
+    return mappers.toDomainRecords(repo.findByGuestId(tenantId, guestId));
+  }
 }

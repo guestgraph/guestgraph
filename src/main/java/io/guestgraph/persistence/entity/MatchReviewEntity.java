@@ -12,104 +12,113 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Review-queue row. The only state change is the single PENDING→decided transition,
- * done via the explicit conditional bulk update in MatchReviewRepo — no setters.
+ * Review-queue row. The only state change is the single PENDING→decided transition, done via the
+ * explicit conditional bulk update in MatchReviewRepo — no setters.
  */
 @Entity
 @Table(name = "match_review")
 public class MatchReviewEntity {
 
-    @Id
-    private UUID id;
-    private UUID tenantId;
+  @Id private UUID id;
+  private UUID tenantId;
 
-    @Enumerated(EnumType.STRING)
-    private ReviewStatus status;
+  @Enumerated(EnumType.STRING)
+  private ReviewStatus status;
 
-    private UUID sourceRecordId;
-    private UUID candidateGuestId;
+  private UUID sourceRecordId;
+  private UUID candidateGuestId;
 
-    @Enumerated(EnumType.STRING)
-    private IdentifierType identifierType;
+  @Enumerated(EnumType.STRING)
+  private IdentifierType identifierType;
 
-    private String identifierValue;
-    private String reason;
-    private String matcherName;
-    private BigDecimal confidence;
-    private Instant createdAt;
-    private Instant decidedAt;
-    private UUID decisionEventId;
+  private String identifierValue;
+  private String reason;
+  private String matcherName;
+  private BigDecimal confidence;
+  private Instant createdAt;
+  private Instant decidedAt;
+  private UUID decisionEventId;
 
-    protected MatchReviewEntity() {
-    }
+  protected MatchReviewEntity() {}
 
-    public MatchReviewEntity(UUID id, UUID tenantId, ReviewStatus status, UUID sourceRecordId, UUID candidateGuestId,
-            IdentifierType identifierType, String identifierValue, String reason, String matcherName,
-            BigDecimal confidence, Instant createdAt, Instant decidedAt, UUID decisionEventId) {
-        this.id = id;
-        this.tenantId = tenantId;
-        this.status = status;
-        this.sourceRecordId = sourceRecordId;
-        this.candidateGuestId = candidateGuestId;
-        this.identifierType = identifierType;
-        this.identifierValue = identifierValue;
-        this.reason = reason;
-        this.matcherName = matcherName;
-        this.confidence = confidence;
-        this.createdAt = createdAt;
-        this.decidedAt = decidedAt;
-        this.decisionEventId = decisionEventId;
-    }
+  public MatchReviewEntity(
+      UUID id,
+      UUID tenantId,
+      ReviewStatus status,
+      UUID sourceRecordId,
+      UUID candidateGuestId,
+      IdentifierType identifierType,
+      String identifierValue,
+      String reason,
+      String matcherName,
+      BigDecimal confidence,
+      Instant createdAt,
+      Instant decidedAt,
+      UUID decisionEventId) {
+    this.id = id;
+    this.tenantId = tenantId;
+    this.status = status;
+    this.sourceRecordId = sourceRecordId;
+    this.candidateGuestId = candidateGuestId;
+    this.identifierType = identifierType;
+    this.identifierValue = identifierValue;
+    this.reason = reason;
+    this.matcherName = matcherName;
+    this.confidence = confidence;
+    this.createdAt = createdAt;
+    this.decidedAt = decidedAt;
+    this.decisionEventId = decisionEventId;
+  }
 
-    public UUID getId() {
-        return id;
-    }
+  public UUID getId() {
+    return id;
+  }
 
-    public UUID getTenantId() {
-        return tenantId;
-    }
+  public UUID getTenantId() {
+    return tenantId;
+  }
 
-    public ReviewStatus getStatus() {
-        return status;
-    }
+  public ReviewStatus getStatus() {
+    return status;
+  }
 
-    public UUID getSourceRecordId() {
-        return sourceRecordId;
-    }
+  public UUID getSourceRecordId() {
+    return sourceRecordId;
+  }
 
-    public UUID getCandidateGuestId() {
-        return candidateGuestId;
-    }
+  public UUID getCandidateGuestId() {
+    return candidateGuestId;
+  }
 
-    public IdentifierType getIdentifierType() {
-        return identifierType;
-    }
+  public IdentifierType getIdentifierType() {
+    return identifierType;
+  }
 
-    public String getIdentifierValue() {
-        return identifierValue;
-    }
+  public String getIdentifierValue() {
+    return identifierValue;
+  }
 
-    public String getReason() {
-        return reason;
-    }
+  public String getReason() {
+    return reason;
+  }
 
-    public String getMatcherName() {
-        return matcherName;
-    }
+  public String getMatcherName() {
+    return matcherName;
+  }
 
-    public BigDecimal getConfidence() {
-        return confidence;
-    }
+  public BigDecimal getConfidence() {
+    return confidence;
+  }
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
 
-    public Instant getDecidedAt() {
-        return decidedAt;
-    }
+  public Instant getDecidedAt() {
+    return decidedAt;
+  }
 
-    public UUID getDecisionEventId() {
-        return decisionEventId;
-    }
+  public UUID getDecisionEventId() {
+    return decisionEventId;
+  }
 }

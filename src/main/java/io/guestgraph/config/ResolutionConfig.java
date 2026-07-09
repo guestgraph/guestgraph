@@ -11,19 +11,19 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ResolutionConfig {
 
-    @Bean
-    public GoldenProfileDeriver goldenProfileDeriver() {
-        return new GoldenProfileDeriver();
-    }
+  @Bean
+  public GoldenProfileDeriver goldenProfileDeriver() {
+    return new GoldenProfileDeriver();
+  }
 
-    @Bean
-    public ResolutionStrategy resolutionStrategy() {
-        return new DeterministicMatcher();
-    }
+  @Bean
+  public ResolutionStrategy resolutionStrategy() {
+    return new DeterministicMatcher();
+  }
 
-    @Bean
-    public ResolutionEngine resolutionEngine(GraphPort graph, ResolutionStrategy strategy,
-            GoldenProfileDeriver profileDeriver) {
-        return new ResolutionEngine(graph, strategy, profileDeriver);
-    }
+  @Bean
+  public ResolutionEngine resolutionEngine(
+      GraphPort graph, ResolutionStrategy strategy, GoldenProfileDeriver profileDeriver) {
+    return new ResolutionEngine(graph, strategy, profileDeriver);
+  }
 }

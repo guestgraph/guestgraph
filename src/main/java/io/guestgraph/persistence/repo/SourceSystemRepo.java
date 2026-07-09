@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface SourceSystemRepo extends Repository<SourceSystemEntity, UUID> {
 
-    @Query("select s from SourceSystemEntity s where s.tenantId = :tenantId and s.code = :code")
-    Optional<SourceSystemEntity> findByCode(@Param("tenantId") UUID tenantId, @Param("code") String code);
+  @Query("select s from SourceSystemEntity s where s.tenantId = :tenantId and s.code = :code")
+  Optional<SourceSystemEntity> findByCode(
+      @Param("tenantId") UUID tenantId, @Param("code") String code);
 }

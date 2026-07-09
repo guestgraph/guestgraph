@@ -10,14 +10,18 @@ import org.springframework.data.repository.query.Param;
 
 public interface SourceRecordRepo extends Repository<SourceRecordEntity, UUID> {
 
-    @Query("""
+  @Query(
+      """
             select r.id from SourceRecordEntity r
             where r.tenantId = :tenantId and r.sourceSystem.id = :sourceSystemId and r.externalKey = :externalKey
             """)
-    Optional<UUID> findIdByExternalKey(@Param("tenantId") UUID tenantId, @Param("sourceSystemId") UUID sourceSystemId,
-            @Param("externalKey") String externalKey);
+  Optional<UUID> findIdByExternalKey(
+      @Param("tenantId") UUID tenantId,
+      @Param("sourceSystemId") UUID sourceSystemId,
+      @Param("externalKey") String externalKey);
 
-    @Query("""
+  @Query(
+      """
             select distinct r from SourceRecordEntity r
             join fetch r.sourceSystem left join fetch r.identifiers
             where r.tenantId = :tenantId and r.id in
@@ -25,5 +29,6 @@ public interface SourceRecordRepo extends Repository<SourceRecordEntity, UUID> {
                  where l.tenantId = :tenantId and l.guestId = :guestId)
             order by r.receivedAt
             """)
-    List<SourceRecordEntity> findByGuestId(@Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId);
+  List<SourceRecordEntity> findByGuestId(
+      @Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId);
 }

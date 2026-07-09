@@ -20,34 +20,35 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/source-systems")
 public class SourceSystemController {
 
-    public record CreateRequest(
-            @NotBlank @Pattern(regexp = "^[a-z0-9][a-z0-9-]*$",
-                    message = "must be lowercase kebab-case (a-z, 0-9, -)") String code,
-            @NotBlank String name) {
+  public record CreateRequest(
+      @NotBlank @Pattern(
+              regexp = "^[a-z0-9][a-z0-9-]*$",
+              message = "must be lowercase kebab-case (a-z, 0-9, -)")
+          String code,
+      @NotBlank String name) {}
+
+  public record SourceSystemResponse(UUID id, String code, String name, Instant createdAt) {
+
+    static SourceSystemResponse of(SourceSystem sourceSystem) {
+      return new SourceSystemResponse(
+          sourceSystem.id(), sourceSystem.code(), sourceSystem.name(), sourceSystem.createdAt());
     }
+  }
 
-    public record SourceSystemResponse(UUID id, String code, String name, Instant createdAt) {
+  private final SourceSystemStore sourceSystemStore;
 
-        static SourceSystemResponse of(SourceSystem sourceSystem) {
-            return new SourceSystemResponse(sourceSystem.id(), sourceSystem.code(), sourceSystem.name(),
-                    sourceSystem.createdAt());
-        }
+  public SourceSystemController(SourceSystemStore sourceSystemStore) {
+    this.sourceSystemStore = sourceSystemStore;
+  }
+
+  @PostMapping
+  @ResponseStatus(HttpStatus.CREATED)
+  public SourceSystemResponse register(@Valid @RequestBody CreateRequest request) {
+    try {
+      return SourceSystemResponse.of(
+          sourceSystemStore.insert(TenantContext.tenantId(), request.code(), request.name()));
+    } catch (DataIntegrityViolationException e) {
+      throw new ConflictException("Source system '" + request.code() + "' is already registered");
     }
-
-    private final SourceSystemStore sourceSystemStore;
-
-    public SourceSystemController(SourceSystemStore sourceSystemStore) {
-        this.sourceSystemStore = sourceSystemStore;
-    }
-
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public SourceSystemResponse register(@Valid @RequestBody CreateRequest request) {
-        try {
-            return SourceSystemResponse.of(
-                    sourceSystemStore.insert(TenantContext.tenantId(), request.code(), request.name()));
-        } catch (DataIntegrityViolationException e) {
-            throw new ConflictException("Source system '" + request.code() + "' is already registered");
-        }
-    }
+  }
 }

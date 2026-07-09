@@ -56,10 +56,10 @@ source_record 1──n record_identifier                          (what the reco
 | source_system_id | uuid | FK → source_system, NOT NULL |
 | external_key | text | NOT NULL — record id in the source; UNIQUE (tenant_id, source_system_id, external_key) = ingest dedup key |
 | payload | jsonb | NOT NULL — original as received; UPDATE-guard trigger (R2) |
-| first_name / last_name / … | text | NULL — extracted normalized convenience fields |
+| extracted | jsonb | NOT NULL — normalized profile fields parsed from the payload |
 | record_timestamp | timestamptz | NULL — source-provided; survivorship falls back to received_at (R7) |
 | needs_review | boolean | NOT NULL DEFAULT false (FR-006) |
-| needs_review_reasons | text[] | NULL — e.g. `{"email: unparseable"}` |
+| needs_review_reasons | jsonb | NOT NULL DEFAULT `[]` — e.g. `["email: unparseable"]` |
 | received_at | timestamptz | NOT NULL |
 
 **Immutability rule**: rows are inserted once; `payload`, `external_key`, ids and timestamps
@@ -129,12 +129,12 @@ linked records' `record_identifier`s on merge/unmerge.
 | tenant_id | uuid | NOT NULL |
 | kind | text | NOT NULL — enum: CREATE, ATTACH, MERGE, UNMERGE, REVIEW_CONFIRM, REVIEW_REJECT |
 | guest_id | uuid | NOT NULL — surviving/affected guest |
-| absorbed_guest_ids | uuid[] | NULL — MERGE: guests folded into survivor |
-| source_record_ids | uuid[] | NULL — records whose links this event created/removed |
+| absorbed_guest_ids | jsonb | NOT NULL DEFAULT `[]` — MERGE: guests folded into survivor (uuid list) |
+| source_record_ids | jsonb | NOT NULL DEFAULT `[]` — records whose links this event created/removed |
 | matcher_name | text | NOT NULL — e.g. `deterministic-identifier-v1`, `manual-review`, `manual-unmerge` |
 | confidence | numeric(4,3) | NOT NULL — 1.000 for deterministic (FR-009); probabilistic-ready |
 | evidence | jsonb | NULL — matched identifiers (type + normalized value), threshold counts; the "why" shown by explain |
-| excluded_guest_ids | uuid[] | NULL — UNMERGE: guests the detached records must not rejoin on replay (R8) |
+| excluded_guest_ids | jsonb | NOT NULL DEFAULT `[]` — UNMERGE: guests the detached records must not rejoin on replay (R8) |
 | created_at | timestamptz | NOT NULL |
 
 INDEX (tenant_id, guest_id, created_at) — explain chain traversal. `explain` collects events

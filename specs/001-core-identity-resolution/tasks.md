@@ -41,13 +41,13 @@ every story depends on
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Write Flyway migration `src/main/resources/db/migration/V1__core_schema.sql` per data-model.md: all 9 tables (tenant, api_key, source_system, source_record, record_identifier, guest, identifier, resolution_link, merge_event, match_review), composite tenant-scoped unique constraints, lookup indexes, and the `source_record_immutable` UPDATE-guard trigger
-- [ ] T006 [P] Create domain types in `src/main/java/io/guestgraph/domain/`: entities as records plus enums `IdentifierType`, `MergeEventKind`, `ReviewStatus` per data-model.md
-- [ ] T007 [P] Create Testcontainers base class `src/test/java/io/guestgraph/integration/PostgresIntegrationTest.java` (shared PostgreSQL container, Flyway applied, test tenant + API key seeded)
-- [ ] T008 Implement API-key auth in `src/main/java/io/guestgraph/auth/`: `ApiKeyFilter` (SHA-256 hash lookup → tenant, 401 problem details when missing/unknown/revoked) and request-scoped `TenantContext`; integration test `src/test/java/io/guestgraph/integration/AuthenticationTest.java`
-- [ ] T009 Implement RFC 9457 error handling in `src/main/java/io/guestgraph/api/ProblemDetailsExceptionHandler.java` + domain exceptions (NotFound→404, Conflict→409, Validation→400) with GuestGraph `type` URIs; integration test asserting `application/problem+json` shape in `src/test/java/io/guestgraph/integration/ProblemDetailsTest.java`
-- [ ] T010 Create tenant-scoped repositories in `src/main/java/io/guestgraph/persistence/` (Tenant, ApiKey, SourceSystem, SourceRecord, RecordIdentifier, Guest, Identifier, ResolutionLink, MergeEvent, MatchReview) — every method takes `tenantId`; no unscoped query methods exist
-- [ ] T011 Implement per-tenant advisory lock guard `src/main/java/io/guestgraph/resolution/TenantLock.java` (`pg_advisory_xact_lock(hashtext(tenant_id))`, transaction-scoped) with integration test proving serialization in `src/test/java/io/guestgraph/integration/TenantLockTest.java`
+- [X] T005 Write Flyway migration `src/main/resources/db/migration/V1__core_schema.sql` per data-model.md: all 9 tables (tenant, api_key, source_system, source_record, record_identifier, guest, identifier, resolution_link, merge_event, match_review), composite tenant-scoped unique constraints, lookup indexes, and the `source_record_immutable` UPDATE-guard trigger
+- [X] T006 [P] Create domain types in `src/main/java/io/guestgraph/domain/`: entities as records plus enums `IdentifierType`, `MergeEventKind`, `ReviewStatus` per data-model.md
+- [X] T007 [P] Create Testcontainers base class `src/test/java/io/guestgraph/integration/PostgresIntegrationTest.java` (shared PostgreSQL container, Flyway applied, test tenant + API key seeded)
+- [X] T008 Implement API-key auth in `src/main/java/io/guestgraph/auth/`: `ApiKeyFilter` (SHA-256 hash lookup → tenant, 401 problem details when missing/unknown/revoked) and request-scoped `TenantContext`; integration test `src/test/java/io/guestgraph/integration/AuthenticationTest.java`
+- [X] T009 Implement RFC 9457 error handling in `src/main/java/io/guestgraph/api/ApiExceptionHandler.java` + domain exceptions (NotFound→404, Conflict→409, Validation→400) with GuestGraph `type` URIs; integration test asserting `application/problem+json` shape in `src/test/java/io/guestgraph/integration/ProblemDetailsTest.java`
+- [X] T010 Create tenant-scoped repositories in `src/main/java/io/guestgraph/persistence/` (Tenant, ApiKey, SourceSystem, SourceRecord, RecordIdentifier, Guest, Identifier, ResolutionLink, MergeEvent, MatchReview) — every method takes `tenantId`; no unscoped query methods exist
+- [X] T011 Implement per-tenant advisory lock guard `src/main/java/io/guestgraph/resolution/TenantLock.java` (`pg_advisory_xact_lock(hashtext(tenant_id))`, transaction-scoped) with integration test proving serialization in `src/test/java/io/guestgraph/integration/TenantLockTest.java`
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 

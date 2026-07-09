@@ -120,7 +120,7 @@ src/
 │   │   │                             #   DeterministicMatcher, MergeService, UnmergeService,
 │   │   │                             #   ExplainService, advisory-lock guard
 │   │   ├── survivorship/             # golden-profile derivation rules
-│   │   └── persistence/              # Spring Data JDBC repositories (all tenant-scoped)
+│   │   └── persistence/              # JdbcClient DAOs, explicit SQL (all tenant-scoped)
 │   └── resources/
 │       ├── application.yaml
 │       └── db/migration/             # Flyway V1__*.sql ...

@@ -6,18 +6,21 @@ The Technical Context contains no `NEEDS CLARIFICATION` items — language, fram
 datastore, build tool, and testing approach are fixed by the constitution and the approved
 design doc. Research therefore resolves the remaining *implementation-level* choices.
 
-## R1. Persistence approach: Spring Data JDBC (not JPA/Hibernate)
+## R1. Persistence approach: JdbcClient DAOs with explicit SQL (not JPA/Hibernate)
 
-- **Decision**: Spring Data JDBC with explicit aggregate boundaries; hand-written SQL where
-  queries are non-trivial (identifier matching, explain chain, advisory locks).
+- **Decision**: Hand-written DAOs on Spring's `JdbcClient` with explicit SQL for every
+  statement — including simple CRUD. No ORM entities, no Spring Data repository interfaces.
 - **Rationale**: The domain is insert-heavy and audit-shaped (immutable records, append-only
   events). JPA's dirty-checking/entity-mutation model works *against* immutability and makes
-  accidental UPDATEs easy; Spring Data JDBC has no managed-entity magic, maps cleanly onto
-  tenant-scoped SQL, and keeps the advisory-lock transaction boundaries explicit.
+  accidental UPDATEs easy. Explicit SQL also makes tenant isolation reviewable line by line:
+  every DAO method takes `tenantId` and every statement carries `WHERE tenant_id = ...` —
+  a guarantee that repository scaffolding like `CrudRepository.findById(id)` (no tenant
+  parameter) would undermine. Advisory-lock transaction boundaries stay explicit too.
 - **Alternatives considered**: JPA/Hibernate (rejected: mutation-oriented, harder to reason
   about SQL for locks and jsonb); jOOQ (rejected: extra codegen + license complexity for an
-  Apache-2.0 OSS core, overkill for ~8 tables); plain JdbcTemplate (viable but loses
-  repository scaffolding for the simple CRUD paths).
+  Apache-2.0 OSS core, overkill for ~8 tables); Spring Data JDBC repositories (originally
+  planned for simple CRUD, dropped during implementation: its derived methods bypass the
+  tenant-first signature convention, reintroducing the cross-tenant footgun).
 
 ## R2. Raw payload storage: `jsonb` column, insert-only, DB-level guard
 

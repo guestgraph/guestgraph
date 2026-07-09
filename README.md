@@ -42,6 +42,14 @@ flowchart TB
 - Maven
 - Spec-driven development with [spec-kit](https://github.com/github/spec-kit)
 
+## Developing
+
+```bash
+./mvnw verify              # build, tests, architecture rules, format check
+./mvnw spotless:apply      # format (google-java-format, Google style) — CI rejects unformatted code
+./scripts/regen-er.sh      # regenerate docs/er-schema.mmd after schema changes — CI checks drift
+```
+
 ## Design principles
 
 1. **Source records are immutable** — the golden profile is derived, the original data is sacred

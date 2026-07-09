@@ -26,9 +26,10 @@ Append-only audit: `merge_event` (per tenant); `match_review` decisions referenc
 `merge_event` they produced. Column detail lives in the tables below — the diagram shows
 relationships only, on purpose: relationships are stable, field lists drift.
 
-> Regenerate/verify against a live schema:
-> `mermerd -c "postgresql://guestgraph:guestgraph@localhost:5432/guestgraph" -s public --useAllTables`
-> ([mermerd](https://github.com/KarnerTh/mermerd) emits a Mermaid `erDiagram` from Postgres.)
+> The mechanically-true, column-level companion is [`docs/er-schema.mmd`](../../docs/er-schema.mmd),
+> generated from the Flyway migrations by `./scripts/regen-er.sh`
+> ([mermerd](https://github.com/KarnerTh/mermerd)). CI's `er-drift` job fails any PR that
+> changes the schema without regenerating it.
 
 ## tenant
 

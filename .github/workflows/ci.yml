@@ -17,3 +17,16 @@ jobs:
           cache: maven
       - name: Build and test
         run: ./mvnw -B verify
+
+  er-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerate ER diagram from Flyway schema
+        run: ./scripts/regen-er.sh
+      - name: Fail if docs/er-schema.mmd is stale
+        run: |
+          git diff --exit-code docs/er-schema.mmd || {
+            echo "::error file=docs/er-schema.mmd::Schema changed but the ER diagram was not regenerated. Run ./scripts/regen-er.sh and commit the result."
+            exit 1
+          }

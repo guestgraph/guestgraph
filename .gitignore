@@ -1,0 +1,12 @@
+# Maven
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Env / secrets
+.env
+*.local

@@ -48,6 +48,16 @@ e.g. XPGMSXGF-1:primaryGuest:2026-07-09T14:30:00Z
   observation (acceptable — the later state wins anyway).
 - `recordTimestamp` = the same `modified` value, so survivorship and slice-3
   supersession order observations identically.
+- **Emit only on person-data change**: the source bumps `modified` on *any* reservation
+  edit (dates, room, price). Emitting person records for every edit is identity-neutral
+  (they just re-attach) but pollutes the observation history and inflates the
+  records-per-identifier count that feeds the review threshold — a chatty reservation
+  could push a normal guest's email over the threshold and cause false review parkings.
+  The connector MUST hash the extracted person fields per `(reservation, role)` slot and
+  emit only when the hash changed. Stateless alternative: content-derived key
+  `{reservationId}:{role}:{hash(personFields)}` lets the server dedup via
+  DUPLICATE_IGNORED — but an A→B→A revert then reuses A's original key/timestamp, which
+  breaks slice-3 "latest observation wins" ordering; prefer the stateful variant.
 - **Field-mapping rule**: reservation-level contact data that is not personal (agency
   phone, property email, shared office numbers) MUST NOT be extracted as guest
   identifiers — persistent non-personal identifiers on a reassigned reservation would

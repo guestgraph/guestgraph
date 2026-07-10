@@ -29,7 +29,7 @@
     <libphonenumber.version>9.0.34</libphonenumber.version>
     <testcontainers.version>1.21.4</testcontainers.version>
     <mapstruct.version>1.6.3</mapstruct.version>
-    <archunit.version>1.4.1</archunit.version>
+    <archunit.version>1.4.2</archunit.version>
     <spotless.version>2.44.5</spotless.version>
     <google-java-format.version>1.27.0</google-java-format.version>
   </properties>

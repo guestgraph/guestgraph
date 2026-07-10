@@ -2,6 +2,7 @@ package io.guestgraph.contract;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.guestgraph.api.ApiDocsController;
 import io.guestgraph.integration.PostgresIntegrationTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -41,6 +43,8 @@ class OpenApiConformanceTest extends PostgresIntegrationTest {
 
   @Autowired RequestMappingHandlerMapping handlerMapping;
 
+  @Autowired ApiDocsController apiDocsController;
+
   @Test
   void servedApiMatchesTheContractBothWays() throws Exception {
     assertThat(CONTRACTS).isNotEmpty();
@@ -51,6 +55,28 @@ class OpenApiConformanceTest extends PostgresIntegrationTest {
     assertThat(documented)
         .as("every served /api operation is documented in openapi.yaml")
         .containsAll(served);
+  }
+
+  @Test
+  void servedApiDocsEqualTheContractUnion() throws Exception {
+    Map<String, Object> document = apiDocsController.apiDocs();
+    @SuppressWarnings("unchecked")
+    Map<String, Map<String, Object>> paths =
+        (Map<String, Map<String, Object>>) document.get("paths");
+    Set<String> published = new LinkedHashSet<>();
+    paths.forEach(
+        (path, item) ->
+            item.keySet().stream()
+                .filter(k -> Set.of("get", "post", "put", "patch", "delete").contains(k))
+                .forEach(method -> published.add(normalize(method, "/api/v1" + path))));
+
+    assertThat(published).isEqualTo(documentedOperations());
+
+    // And it is reachable without an API key — the document contains no tenant data.
+    ResponseEntity<String> response =
+        api(null).get().uri("/api-docs").retrieve().toEntity(String.class);
+    assertThat(response.getStatusCode().value()).isEqualTo(200);
+    assertThat(response.getBody()).contains("GuestGraph Core API").contains("/config/matching");
   }
 
   private Set<String> documentedOperations() throws Exception {

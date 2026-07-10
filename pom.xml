@@ -131,6 +131,19 @@
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <!-- Bundle the per-feature API contracts so /api-docs can serve their union. -->
+      <resource>
+        <directory>specs</directory>
+        <includes>
+          <include>*/contracts/openapi.yaml</include>
+        </includes>
+        <targetPath>api-contracts</targetPath>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.springframework.boot</groupId>

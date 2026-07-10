@@ -67,7 +67,8 @@ API surface (`/api/v1`, per-tenant `X-API-Key`, errors are RFC 9457 problem deta
 `GET|POST|DELETE /config/identifier-rules` · `GET|DELETE /negative-rules` — contracts in
 [`specs/001-core-identity-resolution/contracts/`](specs/001-core-identity-resolution/contracts/openapi.yaml)
 and [`specs/002-probabilistic-matching/contracts/`](specs/002-probabilistic-matching/contracts/openapi.yaml),
-walkthroughs in the matching `quickstart.md` files.
+walkthroughs in the matching `quickstart.md` files. A running instance serves the
+complete merged document at `GET /api-docs` (no API key required).
 
 ## Developing
 

@@ -29,11 +29,11 @@
     <libphonenumber.version>9.0.34</libphonenumber.version>
     <commons-text.version>1.15.0</commons-text.version>
     <commons-codec.version>1.22.0</commons-codec.version>
-    <testcontainers.version>1.21.4</testcontainers.version>
+    <testcontainers.version>2.0.5</testcontainers.version>
     <mapstruct.version>1.6.3</mapstruct.version>
-    <archunit.version>1.4.1</archunit.version>
+    <archunit.version>1.4.2</archunit.version>
     <maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
-    <spotless.version>2.44.5</spotless.version>
+    <spotless.version>3.8.0</spotless.version>
     <google-java-format.version>1.27.0</google-java-format.version>
   </properties>
 
@@ -114,12 +114,12 @@
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>postgresql</artifactId>
+      <artifactId>testcontainers-postgresql</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

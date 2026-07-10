@@ -79,6 +79,10 @@ Note for Eclipse/Spring Tools users: point the IDE build output away from `targe
 (e.g. `bin/`), or stale IDE-compiled classes can break `./mvnw verify` with
 `NoClassDefFoundError` until a `./mvnw clean`.
 
+Until the first release, `V1__core_schema.sql` may still be edited in place; if your local
+dev database reports a Flyway checksum mismatch, recreate it with `docker compose down -v`.
+From the first tagged release on, migrations are additive-only.
+
 ## Design principles
 
 1. **Source records are immutable** — the golden profile is derived, the original data is sacred

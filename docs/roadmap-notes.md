@@ -28,6 +28,26 @@ replacement:
   retention/compaction policy for superseded observations that preserves the
   MergeEvent audit chain.
 
+## Slice 2 — Probabilistic matching (additions)
+
+- **R2-1 Negative match rules (persistent do-not-merge)** — v1 unmerge exclusions bind
+  only the replay of the detached records; a *fresh* record carrying the shared
+  identifier legitimately re-merges the guests (visibly, via a MERGE event). When a
+  steward has explicitly split two people, matchers should be able to consult a
+  persistent negative rule (e.g. suppressed identifier↔guest or guest-pair edges,
+  written by unmerge/reject decisions) so the correction survives new evidence unless a
+  human confirms otherwise. Natural companion to the review queue; per-tenant
+  perfect-match/affiliate-style identifier quality rules belong to the same family.
+
+## Scale levers (when volume demands, not before)
+
+- `ResolutionEngine.rebuildGuest` is O(records-on-guest) per ingest and loads full rows
+  including jsonb payloads; for crowded guests, first switch to a projection without
+  `payload` (survivorship never reads it), then incremental profile update.
+- Per-tenant advisory lock serializes ingest within a tenant (~30–100 records/s); bulk
+  backfills of millions per tenant want a bulk-import mode that pre-partitions records
+  by identifier cluster.
+
 ## Slice 3 — Timeline / journey
 
 ### R3-1: "What reservations does this guest have?" (current associations, not observations)

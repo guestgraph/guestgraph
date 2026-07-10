@@ -1,10 +1,8 @@
 package io.guestgraph.resolution;
 
 import io.guestgraph.domain.MergeEvent;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -25,18 +23,20 @@ public class ExplainOperation {
 
   public List<MergeEvent> explain(UUID tenantId, UUID guestId) {
     Set<UUID> visited = new LinkedHashSet<>();
-    Deque<UUID> frontier = new ArrayDeque<>();
-    frontier.add(guestId);
+    List<UUID> frontier = List.of(guestId);
     List<MergeEvent> chain = new ArrayList<>();
+    // One batched query per merge-chain level, not one per absorbed guest.
     while (!frontier.isEmpty()) {
-      UUID current = frontier.poll();
-      if (!visited.add(current)) {
-        continue;
+      List<UUID> level = frontier.stream().filter(visited::add).toList();
+      if (level.isEmpty()) {
+        break;
       }
-      for (MergeEvent event : graph.eventsForGuests(tenantId, List.of(current))) {
+      List<UUID> next = new ArrayList<>();
+      for (MergeEvent event : graph.eventsForGuests(tenantId, level)) {
         chain.add(event);
-        frontier.addAll(event.absorbedGuestIds());
+        next.addAll(event.absorbedGuestIds());
       }
+      frontier = next;
     }
     chain.sort(Comparator.comparing(MergeEvent::createdAt));
     return chain;

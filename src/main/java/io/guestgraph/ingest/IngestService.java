@@ -69,7 +69,8 @@ public class IngestService {
           existing.get(),
           guestId,
           IngestStatus.DUPLICATE_IGNORED,
-          false,
+          // The stored record's flag, not a constant — neither field masks the other.
+          sourceRecordStore.needsReview(tenantId, existing.get()),
           java.util.List.of(),
           null);
     }

@@ -12,6 +12,13 @@ public interface SourceRecordRepo extends Repository<SourceRecordEntity, UUID> {
 
   @Query(
       """
+            select r.needsReview from SourceRecordEntity r
+            where r.tenantId = :tenantId and r.id = :id
+            """)
+  Optional<Boolean> needsReview(@Param("tenantId") UUID tenantId, @Param("id") UUID id);
+
+  @Query(
+      """
             select r.id from SourceRecordEntity r
             where r.tenantId = :tenantId and r.sourceSystem.id = :sourceSystemId and r.externalKey = :externalKey
             """)

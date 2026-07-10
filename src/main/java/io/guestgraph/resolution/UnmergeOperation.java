@@ -35,7 +35,13 @@ public class UnmergeOperation {
     this.engine = engine;
   }
 
-  public UnmergeResult unmerge(UUID tenantId, UUID guestId, List<UUID> sourceRecordIds) {
+  public UnmergeResult unmerge(UUID tenantId, UUID guestId, List<UUID> requestedRecordIds) {
+    // Dedupe + null-guard: a repeated id must not replay (and re-link) the same record twice.
+    List<UUID> sourceRecordIds =
+        requestedRecordIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+    if (sourceRecordIds.isEmpty()) {
+      throw new InvalidUnmergeException("No source record ids given to detach");
+    }
     if (graph.linkCount(tenantId, guestId) <= 1) {
       throw new InvalidUnmergeException(
           "Guest " + guestId + " has a single source record — nothing to split");

@@ -173,4 +173,4 @@ CREATE TABLE match_review (
     decision_event_id  uuid REFERENCES merge_event (id)
 );
 
-CREATE INDEX match_review_queue_idx ON match_review (tenant_id, status, created_at);
+CREATE INDEX match_review_queue_idx ON match_review (tenant_id, status, created_at, id);

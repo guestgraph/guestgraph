@@ -62,6 +62,10 @@ public class SourceRecordStore {
     return repo.findIdByExternalKey(tenantId, sourceSystemId, externalKey);
   }
 
+  public boolean needsReview(UUID tenantId, UUID sourceRecordId) {
+    return repo.needsReview(tenantId, sourceRecordId).orElse(false);
+  }
+
   public List<SourceRecord> findByGuestId(UUID tenantId, UUID guestId) {
     return mappers.toDomainRecords(repo.findByGuestId(tenantId, guestId));
   }

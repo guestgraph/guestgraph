@@ -130,8 +130,13 @@ design doc. Research therefore resolves the remaining *implementation-level* cho
   identical wrong merge — spec US3/AS3), and the remaining guest's identifiers and profile
   are recomputed from its remaining records.
 - **Rationale**: Detach-by-record is the finest-grained, least surprising contract and maps
-  directly onto `resolution_link`. The exclusion list is what makes unmerge *stick* against
-  identical re-ingest while remaining visible in the decision history.
+  directly onto `resolution_link`. Scope of the exclusion, precisely: it binds the *replay
+  of the detached records at unmerge time* (they cannot rejoin the guest they were detached
+  from), and identical re-ingest is neutralized by dedup (same sourceSystem+externalKey →
+  DUPLICATE_IGNORED). A *fresh* record carrying the shared identifier is new evidence and
+  may legitimately re-merge the guests — never silently, since the MERGE event keeps the
+  re-merge visible in explain (US3-AS3). A persistent do-not-merge rule is deliberately not
+  v1 (see docs/roadmap-notes.md, negative match rules).
 - **Alternatives considered**: revert-by-merge-event (rejected for v1: reverting an event
   deep in the chain requires replaying all subsequent events — more machinery, same user
   outcome; can be added later on top of the same event log); full tenant re-resolution after

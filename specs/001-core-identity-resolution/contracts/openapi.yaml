@@ -190,7 +190,11 @@ paths:
     get:
       operationId: lookupGuests
       summary: Look up guests by identifier value
-      description: The value is normalized before matching. A miss returns an empty list.
+      description: >
+        The value is normalized before matching. A miss returns an empty list. Without an
+        explicit type, every type whose normalization accepts the value is tried — except
+        ID_DOCUMENT, which is only matched when type=ID_DOCUMENT is given (pass the value
+        as TYPE:NUMBER; it is hashed before matching).
       parameters:
         - name: identifier
           in: query

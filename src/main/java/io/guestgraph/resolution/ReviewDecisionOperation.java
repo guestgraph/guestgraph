@@ -48,7 +48,10 @@ public class ReviewDecisionOperation {
     ReviewStatus newStatus = confirm ? ReviewStatus.CONFIRMED : ReviewStatus.REJECTED;
     if (graph.decideReview(tenantId, reviewId, newStatus, event.id()) == 0) {
       // Guarded transition: a concurrent decision won (should not happen under TenantLock).
-      throw new ReviewAlreadyDecidedException(reviewId, review.status());
+      // Re-read for the message — the status we loaded at entry is the stale PENDING.
+      ReviewStatus current =
+          graph.findReview(tenantId, reviewId).map(MatchReview::status).orElse(review.status());
+      throw new ReviewAlreadyDecidedException(reviewId, current);
     }
     if (confirm) {
       engine.rebuildGuest(tenantId, review.candidateGuestId());

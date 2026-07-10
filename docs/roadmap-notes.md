@@ -39,6 +39,36 @@ replacement:
   human confirms otherwise. Natural companion to the review queue; per-tenant
   perfect-match/affiliate-style identifier quality rules belong to the same family.
 
+## Slice 5 — Commercial layer / MCP
+
+### R5-1: AI agent as merge steward (real goal, not a nice-to-have)
+
+The review queue is deliberately agent-ready: entries carry per-signal score breakdowns,
+`explain` + `/records` expose full evidence, decisions are exactly-once and reversible,
+and `merge_event.matcher_name`/`evidence` already accommodate an agent identity and its
+rationale. An AI steward is structurally "another imperfect matcher" — the same safety
+machinery (review bands, unmerge, negative rules) that gates probabilistic scores gates
+the agent.
+
+**Operating model**: three-tier stewardship — rules decide the clear cases, the agent
+(over MCP tools mapping 1:1 to the REST surface: list/decide reviews, explain, records)
+decides high-confidence reviews and escalates ambiguous ones to a human with a
+summarized recommendation.
+
+**Prerequisites to build (small, some earlier than slice 5):**
+
+1. **Actor identity** on decisions (`decided_by`: human user vs. named agent) — today
+   auth identifies only the tenant; the audit trail needs *who*. Also improves the
+   human-steward audit story; a candidate for slice 3/4 rather than waiting for 5.
+2. **Scoped API credentials** — a review-only key: read + decide reviews, but no
+   unmerge, no config changes, no lifting of negative rules.
+3. **FR-011 carve-out** — confirming across a do-not-merge rule lifts the rule; for
+   agents this must be restricted: an agent never overrides a *human's* explicit split.
+   Enforceable once (1) exists.
+4. **PII/data-residency posture** — review evidence is personal data; an MCP-connected
+   agent ships it to a model provider. Needs tenant consent surface and likely an
+   on-prem/EU-residency model option in the commercial offering.
+
 ## Scale levers (when volume demands, not before)
 
 - `ResolutionEngine.rebuildGuest` is O(records-on-guest) per ingest and loads full rows

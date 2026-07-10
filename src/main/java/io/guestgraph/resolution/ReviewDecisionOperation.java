@@ -3,9 +3,12 @@ package io.guestgraph.resolution;
 import io.guestgraph.domain.MatchReview;
 import io.guestgraph.domain.MergeEvent;
 import io.guestgraph.domain.MergeEventKind;
+import io.guestgraph.domain.NegativeMatchRule;
+import io.guestgraph.domain.NegativeRuleOrigin;
 import io.guestgraph.domain.ReviewStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -43,7 +46,10 @@ public class ReviewDecisionOperation {
         confirm ? buildConfirmEvent(tenantId, review) : recordReject(tenantId, review);
     graph.saveEvent(event);
     if (confirm) {
+      liftRules(tenantId, review, event);
       applyConfirm(tenantId, event);
+    } else {
+      writeRejectRules(tenantId, review);
     }
     ReviewStatus newStatus = confirm ? ReviewStatus.CONFIRMED : ReviewStatus.REJECTED;
     if (graph.decideReview(tenantId, reviewId, newStatus, event.id()) == 0) {
@@ -93,6 +99,43 @@ public class ReviewDecisionOperation {
     }
   }
 
+  /** FR-011: an explicit human confirmation supersedes the earlier split. */
+  private void liftRules(UUID tenantId, MatchReview review, MergeEvent event) {
+    List<UUID> candidateSide = graph.recordIdsOfGuest(tenantId, event.guestId());
+    List<UUID> recordSide = new ArrayList<>();
+    recordSide.add(review.sourceRecordId());
+    for (UUID absorbed : event.absorbedGuestIds()) {
+      recordSide.addAll(graph.recordIdsOfGuest(tenantId, absorbed));
+    }
+    graph.liftNegativeRulesBetween(tenantId, recordSide, candidateSide);
+  }
+
+  /** FR-009: a rejection is a split that sticks. */
+  private void writeRejectRules(UUID tenantId, MatchReview review) {
+    // If the sides merged while the review was pending (repointPendingReviews), the
+    // reviewed record already sits inside the candidate cluster — a "do not merge with
+    // yourself" rule is meaningless and would violate the ordered-pair constraint.
+    boolean alreadyMerged =
+        graph
+            .guestOfRecord(tenantId, review.sourceRecordId())
+            .map(g -> g.equals(review.candidateGuestId()))
+            .orElse(false);
+    if (alreadyMerged) {
+      return;
+    }
+    for (UUID candidateRecord : graph.recordIdsOfGuest(tenantId, review.candidateGuestId())) {
+      if (candidateRecord.equals(review.sourceRecordId())) {
+        continue;
+      }
+      graph.saveNegativeRule(
+          NegativeMatchRule.of(
+              tenantId,
+              review.sourceRecordId(),
+              candidateRecord,
+              NegativeRuleOrigin.REVIEW_REJECT));
+    }
+  }
+
   private MergeEvent recordReject(UUID tenantId, MatchReview review) {
     return new MergeEvent(
         UUID.randomUUID(),
@@ -111,8 +154,7 @@ public class ReviewDecisionOperation {
   private Map<String, Object> evidence(MatchReview review, String outcome) {
     return Map.of(
         "reviewId", review.id().toString(),
-        "identifier",
-            Map.of("type", review.identifierType().name(), "value", review.identifierValue()),
+        "identifier", Map.of("type", review.identifierType(), "value", review.identifierValue()),
         "parkedBecause", review.reason(),
         "outcome", outcome);
   }

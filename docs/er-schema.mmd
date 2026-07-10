@@ -26,6 +26,17 @@ erDiagram
         text value_normalized UK 
     }
 
+    identifier_quality_rule {
+        timestamp_with_time_zone created_at 
+        uuid id PK 
+        text identifier_type UK 
+        text match_kind UK 
+        text note 
+        text rule 
+        uuid tenant_id FK,UK 
+        text value_normalized UK 
+    }
+
     match_review {
         uuid candidate_guest_id 
         numeric confidence 
@@ -54,6 +65,23 @@ erDiagram
         text matcher_name 
         jsonb source_record_ids 
         uuid tenant_id FK 
+    }
+
+    negative_match_rule {
+        timestamp_with_time_zone created_at 
+        uuid id PK 
+        text origin 
+        uuid record_a FK,UK 
+        uuid record_b FK,UK 
+        uuid tenant_id UK 
+    }
+
+    record_block_key {
+        uuid id PK 
+        uuid source_record_id FK,UK 
+        uuid tenant_id 
+        text type UK 
+        text value_normalized UK 
     }
 
     record_identifier {
@@ -95,9 +123,11 @@ erDiagram
     }
 
     tenant {
+        numeric auto_merge_threshold 
         timestamp_with_time_zone created_at 
         uuid id PK 
         text name 
+        numeric review_floor 
         integer review_threshold 
         text slug UK 
     }
@@ -106,11 +136,15 @@ erDiagram
     guest }o--|| tenant : "tenant_id"
     identifier }o--|| guest : "guest_id"
     resolution_link }o--|| guest : "guest_id"
+    identifier_quality_rule }o--|| tenant : "tenant_id"
     match_review }o--|| merge_event : "decision_event_id"
     match_review }o--|| source_record : "source_record_id"
     match_review }o--|| tenant : "tenant_id"
     merge_event }o--|| tenant : "tenant_id"
     resolution_link }o--|| merge_event : "created_by_event_id"
+    negative_match_rule }o--|| source_record : "record_a"
+    negative_match_rule }o--|| source_record : "record_b"
+    record_block_key }o--|| source_record : "source_record_id"
     record_identifier }o--|| source_record : "source_record_id"
     resolution_link }o--|| source_record : "source_record_id"
     source_record }o--|| source_system : "source_system_id"

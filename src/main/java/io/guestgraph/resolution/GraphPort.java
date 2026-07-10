@@ -1,9 +1,14 @@
 package io.guestgraph.resolution;
 
+import io.guestgraph.domain.BlockKey;
+import io.guestgraph.domain.BlockKeyType;
 import io.guestgraph.domain.Guest;
+import io.guestgraph.domain.IdentifierQualityRule;
 import io.guestgraph.domain.IdentifierType;
 import io.guestgraph.domain.MatchReview;
+import io.guestgraph.domain.MatchingConfig;
 import io.guestgraph.domain.MergeEvent;
+import io.guestgraph.domain.NegativeMatchRule;
 import io.guestgraph.domain.NormalizedIdentifier;
 import io.guestgraph.domain.ReviewStatus;
 import io.guestgraph.domain.SourceRecord;
@@ -69,4 +74,32 @@ public interface GraphPort {
 
   /** Single PENDING → decided transition; returns 0 when the review was already decided. */
   int decideReview(UUID tenantId, UUID reviewId, ReviewStatus newStatus, UUID decisionEventId);
+
+  // --- probabilistic matching (slice 2) ---
+
+  /** Fuzzy candidates: guests whose linked records share this blocking key. */
+  List<UUID> guestIdsByBlockKey(UUID tenantId, BlockKeyType type, String valueNormalized);
+
+  /** The blocking keys stored for a record at ingest. */
+  List<BlockKey> blockKeysOfRecord(UUID tenantId, UUID sourceRecordId);
+
+  /** The guest's golden profile, or an empty map if the guest is unknown. */
+  Map<String, Object> guestProfile(UUID tenantId, UUID guestId);
+
+  /** Per-tenant score bands + sharing threshold. */
+  MatchingConfig matchingConfig(UUID tenantId);
+
+  List<UUID> recordIdsOfGuest(UUID tenantId, UUID guestId);
+
+  /** Does a do-not-merge rule span the two record sets? */
+  boolean negativeRuleBetween(UUID tenantId, Collection<UUID> recordsA, Collection<UUID> recordsB);
+
+  void saveNegativeRule(NegativeMatchRule rule);
+
+  /** Confirm across a rule lifts every spanning rule (FR-011). */
+  void liftNegativeRulesBetween(
+      UUID tenantId, Collection<UUID> recordsA, Collection<UUID> recordsB);
+
+  /** Tenant quality rules merged with the built-in defaults. */
+  List<IdentifierQualityRule> qualityRules(UUID tenantId);
 }

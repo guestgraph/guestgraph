@@ -27,9 +27,12 @@
   <properties>
     <java.version>25</java.version>
     <libphonenumber.version>9.0.34</libphonenumber.version>
+    <commons-text.version>1.15.0</commons-text.version>
+    <commons-codec.version>1.22.0</commons-codec.version>
     <testcontainers.version>2.0.5</testcontainers.version>
     <mapstruct.version>1.6.3</mapstruct.version>
     <archunit.version>1.4.2</archunit.version>
+    <maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
     <spotless.version>3.8.0</spotless.version>
     <google-java-format.version>1.27.0</google-java-format.version>
   </properties>
@@ -81,6 +84,16 @@
       <groupId>com.googlecode.libphonenumber</groupId>
       <artifactId>libphonenumber</artifactId>
       <version>${libphonenumber.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-text</artifactId>
+      <version>${commons-text.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+      <version>${commons-codec.version}</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -135,6 +148,28 @@
             </path>
           </annotationProcessorPaths>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-pmd-plugin</artifactId>
+        <version>${maven-pmd-plugin.version}</version>
+        <configuration>
+          <rulesets>
+            <ruleset>config/pmd-ruleset.xml</ruleset>
+          </rulesets>
+          <includeTests>true</includeTests>
+          <failOnViolation>true</failOnViolation>
+          <printFailingErrors>true</printFailingErrors>
+          <linkXRef>false</linkXRef>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <!-- verify fails on convention violations, e.g. inline FQNs instead of imports -->
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>com.diffplug.spotless</groupId>

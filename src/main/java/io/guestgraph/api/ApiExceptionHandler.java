@@ -1,5 +1,8 @@
 package io.guestgraph.api;
 
+import io.guestgraph.resolution.InvalidUnmergeException;
+import io.guestgraph.resolution.ReviewAlreadyDecidedException;
+import io.guestgraph.resolution.ReviewNotFoundException;
 import java.net.URI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,19 +42,18 @@ public class ApiExceptionHandler {
     return problem(HttpStatus.BAD_REQUEST, "invalid-request", "Invalid request", e.getMessage());
   }
 
-  @ExceptionHandler(io.guestgraph.resolution.InvalidUnmergeException.class)
-  public ProblemDetail invalidUnmerge(io.guestgraph.resolution.InvalidUnmergeException e) {
+  @ExceptionHandler(InvalidUnmergeException.class)
+  public ProblemDetail invalidUnmerge(InvalidUnmergeException e) {
     return problem(HttpStatus.BAD_REQUEST, "invalid-unmerge", "Invalid unmerge", e.getMessage());
   }
 
-  @ExceptionHandler(io.guestgraph.resolution.ReviewNotFoundException.class)
-  public ProblemDetail reviewNotFound(io.guestgraph.resolution.ReviewNotFoundException e) {
+  @ExceptionHandler(ReviewNotFoundException.class)
+  public ProblemDetail reviewNotFound(ReviewNotFoundException e) {
     return problem(HttpStatus.NOT_FOUND, "not-found", "Resource not found", e.getMessage());
   }
 
-  @ExceptionHandler(io.guestgraph.resolution.ReviewAlreadyDecidedException.class)
-  public ProblemDetail reviewAlreadyDecided(
-      io.guestgraph.resolution.ReviewAlreadyDecidedException e) {
+  @ExceptionHandler(ReviewAlreadyDecidedException.class)
+  public ProblemDetail reviewAlreadyDecided(ReviewAlreadyDecidedException e) {
     return problem(HttpStatus.CONFLICT, "review-already-decided", "Conflict", e.getMessage());
   }
 

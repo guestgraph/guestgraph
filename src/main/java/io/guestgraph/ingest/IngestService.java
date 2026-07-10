@@ -2,17 +2,22 @@ package io.guestgraph.ingest;
 
 import io.guestgraph.api.IngestDtos.IngestRecordRequest;
 import io.guestgraph.api.IngestDtos.IngestResult;
+import io.guestgraph.domain.IdentifierQualityRule;
 import io.guestgraph.domain.IngestStatus;
+import io.guestgraph.domain.RuleEffect;
+import io.guestgraph.domain.RuleMatchKind;
 import io.guestgraph.domain.SourceRecord;
 import io.guestgraph.domain.SourceSystem;
 import io.guestgraph.persistence.Jsons;
 import io.guestgraph.persistence.SourceRecordStore;
 import io.guestgraph.persistence.SourceSystemStore;
 import io.guestgraph.persistence.repo.ResolutionLinkRepo;
+import io.guestgraph.resolution.GraphPort;
 import io.guestgraph.resolution.ResolutionEngine;
 import io.guestgraph.resolution.ResolutionOutcome;
 import io.guestgraph.resolution.TenantLock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -31,6 +36,7 @@ public class IngestService {
   private final ResolutionLinkRepo linkRepo;
   private final RecordExtractor extractor;
   private final ResolutionEngine engine;
+  private final GraphPort graph;
   private final TenantLock tenantLock;
   private final Jsons jsons;
 
@@ -40,6 +46,7 @@ public class IngestService {
       ResolutionLinkRepo linkRepo,
       RecordExtractor extractor,
       ResolutionEngine engine,
+      GraphPort graph,
       TenantLock tenantLock,
       Jsons jsons) {
     this.sourceSystemStore = sourceSystemStore;
@@ -47,6 +54,7 @@ public class IngestService {
     this.linkRepo = linkRepo;
     this.extractor = extractor;
     this.engine = engine;
+    this.graph = graph;
     this.tenantLock = tenantLock;
     this.jsons = jsons;
   }
@@ -71,11 +79,18 @@ public class IngestService {
           IngestStatus.DUPLICATE_IGNORED,
           // The stored record's flag, not a constant — neither field masks the other.
           sourceRecordStore.needsReview(tenantId, existing.get()),
-          java.util.List.of(),
+          List.of(),
           null);
     }
 
-    RecordExtractor.Extraction extraction = extractor.extract(source.code(), request.payload());
+    List<String> maskedDomains =
+        graph.qualityRules(tenantId).stream()
+            .filter(r -> r.rule() == RuleEffect.MASKED_ALIAS)
+            .filter(r -> r.matchKind() == RuleMatchKind.EMAIL_DOMAIN)
+            .map(IdentifierQualityRule::valueNormalized)
+            .toList();
+    RecordExtractor.Extraction extraction =
+        extractor.extract(source.code(), request.payload(), maskedDomains);
     SourceRecord record =
         new SourceRecord(
             UUID.randomUUID(),
@@ -91,6 +106,7 @@ public class IngestService {
             extraction.reasons(),
             Instant.now());
     sourceRecordStore.insert(record);
+    sourceRecordStore.insertBlockKeys(tenantId, record.id(), extraction.blockKeys());
 
     ResolutionOutcome outcome = engine.resolve(record);
     // The status is the real resolution outcome; review flags travel beside it, not over it.

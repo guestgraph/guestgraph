@@ -6,6 +6,7 @@ import io.guestgraph.integration.PostgresIntegrationTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -24,14 +25,25 @@ import org.yaml.snakeyaml.Yaml;
  */
 class OpenApiConformanceTest extends PostgresIntegrationTest {
 
-  private static final Path CONTRACT =
-      Path.of("specs/001-core-identity-resolution/contracts/openapi.yaml");
+  private static final List<Path> CONTRACTS = featureContracts();
+
+  private static List<Path> featureContracts() {
+    try (var specs = Files.list(Path.of("specs"))) {
+      return specs
+          .map(dir -> dir.resolve("contracts/openapi.yaml"))
+          .filter(Files::exists)
+          .sorted()
+          .toList();
+    } catch (java.io.IOException e) {
+      throw new IllegalStateException("Cannot list feature contracts", e);
+    }
+  }
 
   @Autowired RequestMappingHandlerMapping handlerMapping;
 
   @Test
   void servedApiMatchesTheContractBothWays() throws Exception {
-    assertThat(CONTRACT).exists();
+    assertThat(CONTRACTS).isNotEmpty();
     Set<String> documented = documentedOperations();
     Set<String> served = servedOperations();
 
@@ -42,15 +54,17 @@ class OpenApiConformanceTest extends PostgresIntegrationTest {
   }
 
   private Set<String> documentedOperations() throws Exception {
-    Map<String, Object> spec = new Yaml().load(Files.readString(CONTRACT));
-    @SuppressWarnings("unchecked")
-    Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) spec.get("paths");
     Set<String> operations = new LinkedHashSet<>();
-    paths.forEach(
-        (path, item) ->
-            item.keySet().stream()
-                .filter(k -> Set.of("get", "post", "put", "patch", "delete").contains(k))
-                .forEach(method -> operations.add(normalize(method, "/api/v1" + path))));
+    for (Path contract : CONTRACTS) {
+      Map<String, Object> spec = new Yaml().load(Files.readString(contract));
+      @SuppressWarnings("unchecked")
+      Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) spec.get("paths");
+      paths.forEach(
+          (path, item) ->
+              item.keySet().stream()
+                  .filter(k -> Set.of("get", "post", "put", "patch", "delete").contains(k))
+                  .forEach(method -> operations.add(normalize(method, "/api/v1" + path))));
+    }
     return operations;
   }
 

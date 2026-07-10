@@ -63,17 +63,23 @@ curl -s -X POST localhost:8080/api/v1/records \
 API surface (`/api/v1`, per-tenant `X-API-Key`, errors are RFC 9457 problem details):
 `POST /source-systems` · `POST /records` · `GET /guests/{id}` · `GET /guests/{id}/records` ·
 `GET /guests/{id}/explain` · `POST /guests/{id}/unmerge` · `GET /guests?identifier=…` ·
-`GET /match-reviews` · `POST /match-reviews/{id}` — full contract in
-[`specs/001-core-identity-resolution/contracts/openapi.yaml`](specs/001-core-identity-resolution/contracts/openapi.yaml),
-walkthrough in [`specs/001-core-identity-resolution/quickstart.md`](specs/001-core-identity-resolution/quickstart.md).
+`GET /match-reviews` · `POST /match-reviews/{id}` · `GET|PUT /config/matching` ·
+`GET|POST|DELETE /config/identifier-rules` · `GET|DELETE /negative-rules` — contracts in
+[`specs/001-core-identity-resolution/contracts/`](specs/001-core-identity-resolution/contracts/openapi.yaml)
+and [`specs/002-probabilistic-matching/contracts/`](specs/002-probabilistic-matching/contracts/openapi.yaml),
+walkthroughs in the matching `quickstart.md` files.
 
 ## Developing
 
 ```bash
-./mvnw verify              # build, tests, architecture rules, format check
+./mvnw verify              # build, tests, architecture rules, PMD conventions, format check
 ./mvnw spotless:apply      # format (google-java-format, Google style) — CI rejects unformatted code
 ./scripts/regen-er.sh      # regenerate docs/er-schema.mmd after schema changes — CI checks drift
 ```
+
+Code conventions (imports over inline FQNs, guardrail layout, known pitfalls) are
+documented in [`CLAUDE.md`](CLAUDE.md) and enforced by PMD (`config/pmd-ruleset.xml`),
+Spotless, and ArchUnit in `verify`.
 
 Note for Eclipse/Spring Tools users: point the IDE build output away from `target/classes`
 (e.g. `bin/`), or stale IDE-compiled classes can break `./mvnw verify` with

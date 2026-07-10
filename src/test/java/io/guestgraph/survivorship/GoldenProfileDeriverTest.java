@@ -117,4 +117,37 @@ class GoldenProfileDeriverTest {
         List.of(),
         receivedAt);
   }
+
+  @Test
+  void maskedEmailNeverOverwritesARealEmail() {
+    SourceRecord real =
+        record(
+            Map.of("email", "anna@example.com"),
+            Instant.parse("2026-01-01T00:00:00Z"),
+            Instant.parse("2026-01-01T00:00:00Z"));
+    SourceRecord maskedNewer =
+        record(
+            Map.of("email", "x1@guest.booking.com", "emailMasked", true),
+            Instant.parse("2026-06-01T00:00:00Z"),
+            Instant.parse("2026-06-01T00:00:00Z"));
+
+    Map<String, Object> profile = deriver.derive(List.of(real, maskedNewer));
+
+    assertThat(profile).containsEntry("email", "anna@example.com");
+    assertThat(profile).doesNotContainKey("emailMasked");
+  }
+
+  @Test
+  void maskedEmailFillsOnlyWhenNoRealEmailExists() {
+    SourceRecord maskedOnly =
+        record(
+            Map.of("email", "x1@guest.booking.com", "emailMasked", true),
+            Instant.parse("2026-06-01T00:00:00Z"),
+            Instant.parse("2026-06-01T00:00:00Z"));
+
+    Map<String, Object> profile = deriver.derive(List.of(maskedOnly));
+
+    assertThat(profile).containsEntry("email", "x1@guest.booking.com");
+    assertThat(profile).containsEntry("emailMasked", true);
+  }
 }

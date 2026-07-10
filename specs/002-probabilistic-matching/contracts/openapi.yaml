@@ -1,0 +1,223 @@
+openapi: 3.1.0
+info:
+  title: GuestGraph Core API — probabilistic matching additions
+  version: "1.1.0"
+  description: >
+    NEW endpoints introduced by feature 002-probabilistic-matching. The slice-1 surface
+    (specs/001-core-identity-resolution/contracts/openapi.yaml) is unchanged; the OpenAPI
+    conformance gate checks the union of all feature contracts. All errors are RFC 9457
+    problem details; auth is the per-tenant X-API-Key.
+  license:
+    name: Apache-2.0
+servers:
+  - url: /api/v1
+security:
+  - ApiKey: []
+
+paths:
+  /config/matching:
+    get:
+      operationId: getMatchingConfig
+      summary: The tenant's matching thresholds
+      responses:
+        "200":
+          description: Current configuration
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MatchingConfig" }
+        "401": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: updateMatchingConfig
+      summary: Update the tenant's matching thresholds (transactional — all or nothing)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MatchingConfig" }
+      responses:
+        "200":
+          description: Applied; effective for subsequent resolutions, no restart
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MatchingConfig" }
+        "400":
+          description: Invalid combination (e.g. reviewFloor > autoMergeThreshold, values outside 0..1)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+        "401": { $ref: "#/components/responses/Problem" }
+
+  /config/identifier-rules:
+    get:
+      operationId: listIdentifierRules
+      summary: Identifier quality rules — tenant-added plus built-in defaults
+      responses:
+        "200":
+          description: Rules; built-ins carry builtin=true and cannot be deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rules]
+                properties:
+                  rules:
+                    type: array
+                    items: { $ref: "#/components/schemas/IdentifierRule" }
+        "401": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: addIdentifierRule
+      summary: Add a tenant identifier quality rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifierType, matchKind, value, rule]
+              properties:
+                identifierType: { type: string, enum: [EMAIL, PHONE, LOYALTY_ID, ID_DOCUMENT, EXTERNAL_KEY] }
+                matchKind: { type: string, enum: [EXACT, EMAIL_DOMAIN] }
+                value:
+                  type: string
+                  description: Full identifier value, or bare domain for EMAIL_DOMAIN
+                rule: { type: string, enum: [IGNORE, PERFECT_MATCH, MASKED_ALIAS] }
+                note: { type: [string, "null"] }
+      responses:
+        "201":
+          description: Created; effective for subsequent resolutions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IdentifierRule" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "409":
+          description: Equivalent rule already exists
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+  /config/identifier-rules/{ruleId}:
+    delete:
+      operationId: deleteIdentifierRule
+      summary: Delete a tenant rule (built-ins are not deletable)
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404":
+          description: >
+            Unknown rule id — including built-ins, which carry no id and therefore
+            cannot be addressed for deletion
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+  /negative-rules:
+    get:
+      operationId: listNegativeRules
+      summary: Do-not-merge rules (written by unmerge and review rejections)
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Rules, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rules, total]
+                properties:
+                  rules:
+                    type: array
+                    items: { $ref: "#/components/schemas/NegativeRule" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Problem" }
+
+  /negative-rules/{ruleId}:
+    delete:
+      operationId: deleteNegativeRule
+      summary: Lift a do-not-merge rule (steward act) — the pair may merge on next evidence
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Lifted }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  responses:
+    Problem:
+      description: RFC 9457 problem details
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+  schemas:
+    ProblemDetails:
+      type: object
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+      additionalProperties: true
+
+    MatchingConfig:
+      type: object
+      required: [autoMergeThreshold, reviewFloor, reviewThreshold]
+      properties:
+        autoMergeThreshold:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: "Fuzzy scores at/above merge automatically. Default 1.0: automation off"
+        reviewFloor:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Fuzzy scores at/above (and below autoMergeThreshold) go to review; below are discarded
+        reviewThreshold:
+          type: integer
+          minimum: 1
+          description: Slice-1 identifier-sharing count above which exact matches are parked
+
+    IdentifierRule:
+      type: object
+      required: [id, identifierType, matchKind, value, rule, builtin]
+      properties:
+        id: { type: [string, "null"], format: uuid, description: Null for built-ins }
+        identifierType: { type: string }
+        matchKind: { type: string, enum: [EXACT, EMAIL_DOMAIN] }
+        value: { type: string }
+        rule: { type: string, enum: [IGNORE, PERFECT_MATCH, MASKED_ALIAS] }
+        note: { type: [string, "null"] }
+        builtin: { type: boolean }
+        createdAt: { type: [string, "null"], format: date-time }
+
+    NegativeRule:
+      type: object
+      required: [id, recordA, recordB, origin, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        recordA: { type: string, format: uuid }
+        recordB: { type: string, format: uuid }
+        origin: { type: string, enum: [UNMERGE, REVIEW_REJECT, MANUAL] }
+        createdAt: { type: string, format: date-time }

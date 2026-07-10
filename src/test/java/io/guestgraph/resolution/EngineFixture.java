@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.guestgraph.domain.IdentifierType;
 import io.guestgraph.domain.NormalizedIdentifier;
 import io.guestgraph.domain.SourceRecord;
+import io.guestgraph.normalize.BlockKeys;
 import io.guestgraph.survivorship.GoldenProfileDeriver;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,7 +26,14 @@ public class EngineFixture {
 
   public final InMemoryGraph graph = new InMemoryGraph();
   public final ResolutionEngine engine =
-      new ResolutionEngine(graph, new DeterministicMatcher(), new GoldenProfileDeriver());
+      new ResolutionEngine(
+          graph,
+          new CompositeStrategy(
+              new DeterministicMatcher(),
+              new FuzzyMatcher(),
+              new MatchingPolicy(),
+              tenant -> graph.matchingConfig(tenant)),
+          new GoldenProfileDeriver());
 
   private final Map<String, UUID> recordIdsByName = new LinkedHashMap<>();
   private final Map<String, ResolutionOutcome> outcomesByName = new LinkedHashMap<>();
@@ -70,13 +79,41 @@ public class EngineFixture {
       this.name = name;
     }
 
+    private String firstName;
+    private String lastName;
+    private LocalDate birthdate;
+    private final List<String> maskedEmails = new ArrayList<>();
+
+    public RecordBuilder name(String first, String last) {
+      this.firstName = first;
+      this.lastName = last;
+      extracted.put("firstName", first);
+      extracted.put("lastName", last);
+      return this;
+    }
+
+    public RecordBuilder birthdate(String isoDate) {
+      this.birthdate = LocalDate.parse(isoDate);
+      extracted.put("birthdate", isoDate);
+      return this;
+    }
+
+    public RecordBuilder maskedEmail(String alias) {
+      maskedEmails.add(alias);
+      extracted.put("email", alias);
+      extracted.put("emailMasked", true);
+      return this;
+    }
+
     public RecordBuilder email(String normalized) {
       identifiers.add(new NormalizedIdentifier(IdentifierType.EMAIL, normalized));
+      extracted.put("email", normalized);
       return this;
     }
 
     public RecordBuilder phone(String normalized) {
       identifiers.add(new NormalizedIdentifier(IdentifierType.PHONE, normalized));
+      extracted.put("phone", normalized);
       return this;
     }
 
@@ -107,6 +144,22 @@ public class EngineFixture {
     public ResolutionOutcome resolve(Set<UUID> excludedGuestIds) {
       SourceRecord record = build();
       graph.register(record);
+      graph.registerBlockKeys(
+          record.id(),
+          BlockKeys.derive(
+              new BlockKeys.PersonFields(
+                  firstName,
+                  lastName,
+                  birthdate,
+                  identifiers.stream()
+                      .filter(i -> i.type() == IdentifierType.PHONE)
+                      .map(NormalizedIdentifier::value)
+                      .toList(),
+                  identifiers.stream()
+                      .filter(i -> i.type() == IdentifierType.EMAIL)
+                      .map(NormalizedIdentifier::value)
+                      .toList(),
+                  maskedEmails)));
       ResolutionOutcome outcome = engine.resolve(record, new HashSet<>(excludedGuestIds));
       outcomesByName.put(name, outcome);
       return outcome;

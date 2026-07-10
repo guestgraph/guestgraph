@@ -1,10 +1,14 @@
 package io.guestgraph.ingest;
 
+import io.guestgraph.domain.BlockKey;
 import io.guestgraph.domain.IdentifierType;
 import io.guestgraph.domain.NormalizedIdentifier;
+import io.guestgraph.normalize.BlockKeys;
 import io.guestgraph.normalize.EmailNormalizer;
 import io.guestgraph.normalize.IdDocumentHasher;
 import io.guestgraph.normalize.PhoneNormalizer;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,9 +43,20 @@ public class RecordExtractor {
    *     collide
    */
   public Extraction extract(String sourceSystemCode, Map<String, Object> payload) {
+    return extract(sourceSystemCode, payload, List.of());
+  }
+
+  /**
+   * @param maskedEmailDomains MASKED_ALIAS domains (built-in OTA relays + tenant rules)
+   */
+  public Extraction extract(
+      String sourceSystemCode, Map<String, Object> payload, List<String> maskedEmailDomains) {
     Map<String, Object> extracted = new LinkedHashMap<>();
     List<NormalizedIdentifier> identifiers = new ArrayList<>();
     List<String> reasons = new ArrayList<>();
+    List<String> realEmails = new ArrayList<>();
+    List<String> phones = new ArrayList<>();
+    List<String> maskedEmails = new ArrayList<>();
 
     payload.forEach(
         (field, value) -> {
@@ -50,13 +65,26 @@ public class RecordExtractor {
           }
         });
 
+    // After the raw copy, so the canonical ISO form wins (like email/phone below).
+    LocalDate birthdate = parseBirthdate(payload, extracted, reasons);
+
     asText(payload.get("email"))
         .ifPresent(
             raw -> {
               Optional<String> email = EmailNormalizer.normalize(raw);
               if (email.isPresent()) {
+                boolean masked =
+                    maskedEmailDomains.stream().anyMatch(d -> email.get().endsWith("@" + d));
                 extracted.put("email", email.get());
-                identifiers.add(new NormalizedIdentifier(IdentifierType.EMAIL, email.get()));
+                if (masked) {
+                  // MASKED_ALIAS: no EMAIL identifier (no deterministic merges), flagged
+                  // for the survivorship guard, EMAIL_MASKED block key only (US3).
+                  extracted.put("emailMasked", true);
+                  maskedEmails.add(email.get());
+                } else {
+                  identifiers.add(new NormalizedIdentifier(IdentifierType.EMAIL, email.get()));
+                  realEmails.add(email.get());
+                }
               } else {
                 reasons.add("email: not a valid email address");
               }
@@ -69,6 +97,7 @@ public class RecordExtractor {
               if (phone.isPresent()) {
                 extracted.put("phone", phone.get());
                 identifiers.add(new NormalizedIdentifier(IdentifierType.PHONE, phone.get()));
+                phones.add(phone.get());
               } else {
                 reasons.add("phone: cannot be normalized to E.164");
               }
@@ -108,7 +137,32 @@ public class RecordExtractor {
     if (identifiers.isEmpty()) {
       reasons.add("no valid strong identifiers in record");
     }
-    return new Extraction(extracted, identifiers, reasons);
+    List<BlockKey> blockKeys =
+        BlockKeys.derive(
+            new BlockKeys.PersonFields(
+                asText(payload.get("firstName")).orElse(null),
+                asText(payload.get("lastName")).orElse(null),
+                birthdate,
+                phones,
+                realEmails,
+                maskedEmails));
+    return new Extraction(extracted, identifiers, blockKeys, reasons);
+  }
+
+  private LocalDate parseBirthdate(
+      Map<String, Object> payload, Map<String, Object> extracted, List<String> reasons) {
+    Optional<String> raw = asText(payload.get("birthdate"));
+    if (raw.isEmpty()) {
+      return null;
+    }
+    try {
+      LocalDate parsed = LocalDate.parse(raw.get().trim());
+      extracted.put("birthdate", parsed.toString());
+      return parsed;
+    } catch (DateTimeParseException e) {
+      reasons.add("birthdate: not an ISO date");
+      return null;
+    }
   }
 
   private Optional<String> asText(Object value) {
@@ -119,7 +173,10 @@ public class RecordExtractor {
   }
 
   public record Extraction(
-      Map<String, Object> extracted, List<NormalizedIdentifier> identifiers, List<String> reasons) {
+      Map<String, Object> extracted,
+      List<NormalizedIdentifier> identifiers,
+      List<BlockKey> blockKeys,
+      List<String> reasons) {
 
     public boolean needsReview() {
       return !reasons.isEmpty();

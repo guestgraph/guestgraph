@@ -1,6 +1,5 @@
 package io.guestgraph.persistence.entity;
 
-import io.guestgraph.domain.IdentifierType;
 import io.guestgraph.domain.ReviewStatus;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -28,8 +27,7 @@ public class MatchReviewEntity {
   private UUID sourceRecordId;
   private UUID candidateGuestId;
 
-  @Enumerated(EnumType.STRING)
-  private IdentifierType identifierType;
+  private String identifierType;
 
   private String identifierValue;
   private String reason;
@@ -47,7 +45,7 @@ public class MatchReviewEntity {
       ReviewStatus status,
       UUID sourceRecordId,
       UUID candidateGuestId,
-      IdentifierType identifierType,
+      String identifierType,
       String identifierValue,
       String reason,
       String matcherName,
@@ -90,7 +88,7 @@ public class MatchReviewEntity {
     return candidateGuestId;
   }
 
-  public IdentifierType getIdentifierType() {
+  public String getIdentifierType() {
     return identifierType;
   }
 

@@ -26,7 +26,7 @@ public class DeterministicMatcher implements ResolutionStrategy {
         .map(
             candidate -> {
               boolean suspicious = candidate.recordsSharingIdentifier() > reviewThreshold;
-              return new MatchDecision(
+              return MatchDecision.exact(
                   candidate.guestId(),
                   candidate.identifier(),
                   suspicious ? MatchDecision.Disposition.REVIEW : MatchDecision.Disposition.MATCH,

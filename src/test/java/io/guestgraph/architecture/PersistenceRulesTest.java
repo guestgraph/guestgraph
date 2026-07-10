@@ -48,6 +48,9 @@ class PersistenceRulesTest {
     appClasses =
         new ClassFileImporter()
             .withImportOption(new ImportOption.DoNotIncludeTests())
+            // Spring AOT artifacts (Foo__BeanDefinitions, FooImpl__AotRepository) are
+            // generated from the reviewed source — the rules target what humans write.
+            .withImportOption(location -> !location.contains("__"))
             .importPackages("io.guestgraph");
   }
 

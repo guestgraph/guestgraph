@@ -1,0 +1,55 @@
+# Roadmap notes — requirements captured for future slices
+
+Requirements that surfaced during slice 1 but belong to later slices. Each slice's
+`/speckit-specify` run MUST consume its section here.
+
+## Slice 3 — Timeline / journey
+
+### R3-1: "What reservations does this guest have?" (current associations, not observations)
+
+Slice 1 answers *"what did we observe about this person"* (`GET /guests/{id}/records`);
+it deliberately does not answer *"what does this person currently have"*. Multiple
+observations of the same source object (e.g. Apaleo reservation `R1` whose guest was
+edited from person A to person B) live as independent immutable records on different
+guests — both guests' record lists reference R1, with no supersession link.
+
+Slice 3 must make source objects (reservation first) first-class **events** on resolved
+guests:
+
+- Group observations by business-object identity (reservation id from the payload) and
+  role slot (primaryGuest / additionalGuests[n] / booker).
+- Later observations of the same `(object, slot)` supersede earlier ones: the event moves
+  to the guest of the latest observation.
+- Query contract: for the A→B reassignment case, guest B's timeline returns R1;
+  guest A returns nothing for R1 (or an explicitly closed/transferred association —
+  spec decision).
+- The full observation history stays reachable (Constitution II — nothing is lost,
+  supersession is a view, not a deletion).
+
+## Slice 4 — Connectors
+
+### R4-1: externalKey convention for mutable, multi-person source objects (Apaleo pattern)
+
+`externalKey` identifies an *observation*, not the source object (see slice-1 API
+contract). For PMS reservations carrying entity-less persons the convention is:
+
+```
+{reservationId}:{personRole}:{entityModifiedTimestamp}
+e.g. XPGMSXGF-1:primaryGuest:2026-07-09T14:30:00Z
+     XPGMSXGF-1:additionalGuests[0]:2026-07-09T14:30:00Z
+```
+
+- **One record per person per version** — a reservation version with 3 persons emits 3
+  records; the role segment prevents dedup-key collisions.
+- **Version discriminator = the entity's own `modified` timestamp**, not the webhook
+  event id: derivable from source state alone, therefore idempotent across webhook
+  retries, duplicate change-pings that fetch the same final state, and full
+  backfills/re-syncs. Two edits within timestamp granularity collapse to one
+  observation (acceptable — the later state wins anyway).
+- `recordTimestamp` = the same `modified` value, so survivorship and slice-3
+  supersession order observations identically.
+- **Field-mapping rule**: reservation-level contact data that is not personal (agency
+  phone, property email, shared office numbers) MUST NOT be extracted as guest
+  identifiers — persistent non-personal identifiers on a reassigned reservation would
+  transitively merge different people (slice-1 review threshold is the backstop, not
+  the fix).

@@ -39,8 +39,26 @@
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+*Source: `.specify/memory/constitution.md` v1.0.0*
 
-[Gates determined based on constitution file]
+- [ ] **Tenant isolation (I)**: every new table, query, constraint, lock, and endpoint is
+      scoped by `tenant_id`; no cross-tenant code path introduced.
+- [ ] **Immutable source records (II)**: no design element mutates or deletes raw source
+      payloads; golden-profile data is derived and recomputable.
+- [ ] **No silent data loss (III)**: malformed-but-parseable input is stored flagged
+      `needs_review`; outright rejections return RFC 9457 problem details.
+- [ ] **Explainable & reversible resolution (IV)**: every merge path records a MergeEvent
+      (matcher name, confidence, when); explain/unmerge remain possible; uncertain matches
+      route to MatchReview; `ResolutionStrategy` stays a candidate-scoring contract.
+- [ ] **API-first (V)**: every new capability is reachable via `/api/v1/...`; errors are
+      RFC 9457; core auth stays per-tenant API keys.
+- [ ] **TDD on the resolution engine (VI)**: resolution-engine tasks schedule failing
+      tests before implementation; scenario tests cover new matching behavior;
+      Testcontainers-backed integration tests planned.
+- [ ] **Stack & shape**: Java 25 + Spring Boot 4 + virtual threads + PostgreSQL + Maven;
+      single service/module — any deviation is justified in Complexity Tracking.
+- [ ] **Open-core boundary**: no commercial (guestgraph/cloud) concerns leak into core.
+- [ ] **GDPR readiness**: design does not preclude future per-guest erasure/export.
 
 ## Project Structure
 

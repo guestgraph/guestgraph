@@ -1,0 +1,492 @@
+openapi: 3.1.0
+info:
+  title: GuestGraph Core API
+  version: "1.0.0"
+  description: >
+    Tenant-scoped guest identity resolution: ingest source records, resolve identities
+    deterministically, query golden profiles, explain and reverse merges, review uncertain
+    matches. All errors are RFC 9457 problem details. Feature: 001-core-identity-resolution.
+  license:
+    name: Apache-2.0
+servers:
+  - url: /api/v1
+security:
+  - ApiKey: []
+
+paths:
+  /source-systems:
+    post:
+      operationId: registerSourceSystem
+      summary: Register a source system for the caller's tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string, pattern: "^[a-z0-9][a-z0-9-]*$", examples: ["opera-pms"] }
+                name: { type: string, examples: ["Opera PMS"] }
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SourceSystem" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "409":
+          description: Code already registered in this tenant
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+  /records:
+    post:
+      operationId: ingestRecords
+      summary: Ingest guest record(s); resolves synchronously
+      description: >
+        Accepts a single record or a batch (max 1000). Each record is stored immutably and
+        resolved independently; one outcome is returned per record. Malformed-but-parseable
+        records are stored flagged needs_review — never dropped. Only an unparseable request
+        body is rejected as a whole.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/IngestRecord"
+                - type: array
+                  items: { $ref: "#/components/schemas/IngestRecord" }
+                  maxItems: 1000
+      responses:
+        "200":
+          description: Per-record resolution outcomes (batch is never atomic)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items: { $ref: "#/components/schemas/IngestResult" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+
+  /guests/{guestId}:
+    get:
+      operationId: getGuest
+      summary: Golden profile + identifiers
+      parameters: [{ $ref: "#/components/parameters/GuestId" }]
+      responses:
+        "200":
+          description: The guest
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Guest" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /guests/{guestId}/records:
+    get:
+      operationId: getGuestRecords
+      summary: The guest's source records, as originally received
+      parameters: [{ $ref: "#/components/parameters/GuestId" }]
+      responses:
+        "200":
+          description: Source records
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [records]
+                properties:
+                  records:
+                    type: array
+                    items: { $ref: "#/components/schemas/SourceRecord" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /guests/{guestId}/explain:
+    get:
+      operationId: explainGuest
+      summary: Why these records are one guest — the full merge-event chain
+      parameters: [{ $ref: "#/components/parameters/GuestId" }]
+      responses:
+        "200":
+          description: Decision chain, oldest first (includes events of absorbed guests)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [guestId, events]
+                properties:
+                  guestId: { type: string, format: uuid }
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/MergeEvent" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /guests/{guestId}/unmerge:
+    post:
+      operationId: unmergeGuest
+      summary: Detach wrongly linked record(s) and replay resolution
+      description: >
+        Removes the resolution links of the given source records, records an UNMERGE event
+        (with an exclusion so identical re-ingest does not silently recreate the wrong merge),
+        re-resolves the detached records, and recomputes the remaining guest's profile and
+        identifiers. Source records are never altered.
+      parameters: [{ $ref: "#/components/parameters/GuestId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sourceRecordIds]
+              properties:
+                sourceRecordIds:
+                  type: array
+                  minItems: 1
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Outcome of the replay
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [unmergeEventId, detachedRecords]
+                properties:
+                  unmergeEventId: { type: string, format: uuid }
+                  remainingGuestId:
+                    type: [string, "null"]
+                    format: uuid
+                    description: Null if no records remained and the guest was removed
+                  detachedRecords:
+                    type: array
+                    items:
+                      type: object
+                      required: [sourceRecordId, guestId]
+                      properties:
+                        sourceRecordId: { type: string, format: uuid }
+                        guestId:
+                          type: string
+                          format: uuid
+                          description: Guest the record re-resolved to
+        "400":
+          description: E.g. record not linked to this guest, or guest has a single record
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /guests:
+    get:
+      operationId: lookupGuests
+      summary: Look up guests by identifier value
+      description: >
+        The value is normalized before matching. A miss returns an empty list. Without an
+        explicit type, every type whose normalization accepts the value is tried — except
+        ID_DOCUMENT, which is only matched when type=ID_DOCUMENT is given (pass the value
+        as TYPE:NUMBER; it is hashed before matching).
+      parameters:
+        - name: identifier
+          in: query
+          required: true
+          schema: { type: string }
+          examples:
+            email: { value: "Anna.Muster@Example.com" }
+            phone: { value: "+41 79 123 45 67" }
+        - name: type
+          in: query
+          required: false
+          description: Restrict to one identifier type; otherwise all types are tried
+          schema: { $ref: "#/components/schemas/IdentifierType" }
+      responses:
+        "200":
+          description: Matching guests (usually 0 or 1; >1 after a rejected shared-identifier review)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [guests]
+                properties:
+                  guests:
+                    type: array
+                    items: { $ref: "#/components/schemas/Guest" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+
+  /match-reviews:
+    get:
+      operationId: listMatchReviews
+      summary: Pending uncertain matches
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING, CONFIRMED, REJECTED]
+            default: PENDING
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Review queue entries, oldest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reviews, total]
+                properties:
+                  reviews:
+                    type: array
+                    items: { $ref: "#/components/schemas/MatchReview" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Problem" }
+
+  /match-reviews/{reviewId}:
+    post:
+      operationId: decideMatchReview
+      summary: Confirm or reject a queued match (exactly once)
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [CONFIRM, REJECT] }
+      responses:
+        "200":
+          description: Decision applied; on CONFIRM the merge executed and was recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MatchReview" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409":
+          description: Review already decided; the first decision stands
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Per-tenant API key; determines the tenant scope of every operation
+
+  parameters:
+    GuestId:
+      name: guestId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Problem:
+      description: RFC 9457 problem details
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+  schemas:
+    ProblemDetails:
+      type: object
+      description: RFC 9457
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+      additionalProperties: true
+
+    IdentifierType:
+      type: string
+      enum: [EMAIL, PHONE, LOYALTY_ID, ID_DOCUMENT, EXTERNAL_KEY]
+
+    Identifier:
+      type: object
+      required: [type, value]
+      properties:
+        type: { $ref: "#/components/schemas/IdentifierType" }
+        value:
+          type: string
+          description: Normalized value; for ID_DOCUMENT this is the hash
+
+    IngestRecord:
+      type: object
+      required: [sourceSystem, externalKey, payload]
+      properties:
+        sourceSystem:
+          type: string
+          description: Code of a registered source system
+          examples: ["opera-pms"]
+        externalKey:
+          type: string
+          description: >
+            Identifies this OBSERVATION of the source record, not the underlying business
+            object — dedup key together with sourceSystem. Records are immutable snapshots:
+            when the source mutates an object over its lifecycle (e.g. the guest data on a
+            PMS reservation is edited), each version must arrive with its own externalKey
+            (reservation id + modification timestamp / version / event id), or the update is
+            silently absorbed as DUPLICATE_IGNORED. Reuse the same externalKey only for
+            idempotent redelivery of the identical version (webhook retries).
+          examples: ["RES-123:2026-07-09T14:30:00Z"]
+        recordTimestamp:
+          type: [string, "null"]
+          format: date-time
+          description: >
+            When the source produced this version; drives survivorship (most recent
+            non-null field wins), so later versions of the same object supersede earlier
+            ones in the golden profile
+        payload:
+          type: object
+          description: >
+            The raw guest record. Recognized fields are extracted and normalized
+            (firstName, lastName, email, phone, loyaltyId, idDocument{type,number},
+            plus arbitrary extra fields, all preserved verbatim).
+          additionalProperties: true
+
+    IngestResult:
+      type: object
+      required: [externalKey, status, needsReview]
+      properties:
+        externalKey: { type: string }
+        sourceRecordId: { type: [string, "null"], format: uuid }
+        guestId: { type: [string, "null"], format: uuid }
+        status:
+          type: string
+          enum: [CREATED_GUEST, ATTACHED, MERGED, DUPLICATE_IGNORED, ERROR]
+          description: >
+            The resolution outcome. CREATED_GUEST: no match, new guest. ATTACHED: one
+            match. MERGED: 2+ guests merged. DUPLICATE_IGNORED: same
+            sourceSystem+externalKey already stored. ERROR: this record failed —
+            problem carries details.
+        needsReview:
+          type: boolean
+          description: >
+            The record was stored but flagged (malformed values, no valid identifiers).
+            Reported beside the status so neither masks the other.
+        pendingReviewIds:
+          type: array
+          description: Suspicious matches parked in the review queue instead of merged
+          items: { type: string, format: uuid }
+        problem:
+          oneOf:
+            - $ref: "#/components/schemas/ProblemDetails"
+            - type: "null"
+
+    SourceSystem:
+      type: object
+      required: [id, code, name, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    SourceRecord:
+      type: object
+      required: [id, sourceSystem, externalKey, payload, needsReview, receivedAt]
+      properties:
+        id: { type: string, format: uuid }
+        sourceSystem: { type: string }
+        externalKey: { type: string }
+        payload:
+          type: object
+          additionalProperties: true
+          description: The original, exactly as received
+        identifiers:
+          type: array
+          items: { $ref: "#/components/schemas/Identifier" }
+        recordTimestamp: { type: [string, "null"], format: date-time }
+        needsReview: { type: boolean }
+        needsReviewReasons:
+          type: array
+          items: { type: string }
+        receivedAt: { type: string, format: date-time }
+
+    Guest:
+      type: object
+      required: [id, profile, identifiers, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        profile:
+          type: object
+          additionalProperties: true
+          description: Golden profile — derived per survivorship rules, recomputable
+        identifiers:
+          type: array
+          items: { $ref: "#/components/schemas/Identifier" }
+        recordCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    MergeEvent:
+      type: object
+      required: [id, kind, guestId, matcherName, confidence, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind:
+          type: string
+          enum: [CREATE, ATTACH, MERGE, UNMERGE, REVIEW_CONFIRM, REVIEW_REJECT]
+        guestId: { type: string, format: uuid }
+        absorbedGuestIds:
+          type: array
+          items: { type: string, format: uuid }
+        sourceRecordIds:
+          type: array
+          items: { type: string, format: uuid }
+        matcherName:
+          type: string
+          examples: ["deterministic-identifier-v1"]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: 1.0 for deterministic decisions
+        evidence:
+          type: object
+          additionalProperties: true
+          description: Matched identifiers and context — the human-readable "why"
+        createdAt: { type: string, format: date-time }
+
+    MatchReview:
+      type: object
+      required: [id, status, sourceRecordId, candidateGuestId, reason, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING, CONFIRMED, REJECTED] }
+        sourceRecordId: { type: string, format: uuid }
+        candidateGuestId: { type: string, format: uuid }
+        identifier: { $ref: "#/components/schemas/Identifier" }
+        reason:
+          type: string
+          examples: ["identifier shared by 41 records (threshold 10)"]
+        matcherName: { type: string }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        createdAt: { type: string, format: date-time }
+        decidedAt: { type: [string, "null"], format: date-time }
+        decisionEventId: { type: [string, "null"], format: uuid }

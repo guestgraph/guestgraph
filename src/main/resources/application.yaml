@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: guestgraph
+  threads:
+    virtual:
+      enabled: true
+  mvc:
+    problemdetails:
+      enabled: true
+  flyway:
+    enabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  docker:
+    compose:
+      lifecycle-management: start_only
+
+server:
+  port: 8080
+
+guestgraph:
+  # ISO region for national-format phone numbers (e.g. "CH"); unset = only
+  # +international numbers are accepted as identifiers (research R5).
+  default-phone-region: ""
+  # Request body cap on /api (RFC 9457 413 when exceeded) — payloads are stored forever.
+  max-request-bytes: 5242880

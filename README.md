@@ -12,6 +12,26 @@ Guest data in hospitality is scattered — PMS, POS, booking engines, loyalty pr
 - **Unmerge** safely when resolution got it wrong — every merge is reversible
 - **Query** unified golden profiles and their source records, per tenant
 
+## How it fits together
+
+```mermaid
+flowchart TB
+    subgraph commercial["Commercial — guestgraph.io (planned)"]
+        SAAS["Managed hosting · MCP server · console"]
+    end
+    subgraph oss["Open source — Apache 2.0 (this org)"]
+        CONN["Connectors — PMS, POS, booking ..."]
+        TL["Timeline — unified guest journey"]
+        CORE["Core — identity resolution engine<br/>+ guest graph + REST API"]
+    end
+    PG[("PostgreSQL")]
+
+    SAAS --> CONN & TL
+    CONN --> CORE
+    TL --> CORE
+    CORE --> PG
+```
+
 ## Status
 
 🚧 **Early development.** The core identity resolution service is being built spec-first — see [`docs/`](docs/) and [`.specify/`](.specify/) for the design and specs.
@@ -21,6 +41,47 @@ Guest data in hospitality is scattered — PMS, POS, booking engines, loyalty pr
 - Java 25 (virtual threads) · Spring Boot 4 · PostgreSQL
 - Maven
 - Spec-driven development with [spec-kit](https://github.com/github/spec-kit)
+
+## Quickstart
+
+Prerequisites: JDK 25 and Docker (Postgres runs via `compose.yaml` automatically).
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local   # seeds tenant "demo" + API key "demo-key"
+```
+
+```bash
+# register a source system, ingest a record, resolve → guest id
+curl -s -X POST localhost:8080/api/v1/source-systems \
+  -H 'X-API-Key: demo-key' -H 'Content-Type: application/json' \
+  -d '{"code":"opera-pms","name":"Opera PMS"}'
+curl -s -X POST localhost:8080/api/v1/records \
+  -H 'X-API-Key: demo-key' -H 'Content-Type: application/json' \
+  -d '{"sourceSystem":"opera-pms","externalKey":"r-1","payload":{"firstName":"Anna","email":"anna@example.com"}}'
+```
+
+API surface (`/api/v1`, per-tenant `X-API-Key`, errors are RFC 9457 problem details):
+`POST /source-systems` · `POST /records` · `GET /guests/{id}` · `GET /guests/{id}/records` ·
+`GET /guests/{id}/explain` · `POST /guests/{id}/unmerge` · `GET /guests?identifier=…` ·
+`GET /match-reviews` · `POST /match-reviews/{id}` — full contract in
+[`specs/001-core-identity-resolution/contracts/openapi.yaml`](specs/001-core-identity-resolution/contracts/openapi.yaml),
+walkthrough in [`specs/001-core-identity-resolution/quickstart.md`](specs/001-core-identity-resolution/quickstart.md).
+
+## Developing
+
+```bash
+./mvnw verify              # build, tests, architecture rules, format check
+./mvnw spotless:apply      # format (google-java-format, Google style) — CI rejects unformatted code
+./scripts/regen-er.sh      # regenerate docs/er-schema.mmd after schema changes — CI checks drift
+```
+
+Note for Eclipse/Spring Tools users: point the IDE build output away from `target/classes`
+(e.g. `bin/`), or stale IDE-compiled classes can break `./mvnw verify` with
+`NoClassDefFoundError` until a `./mvnw clean`.
+
+Until the first release, `V1__core_schema.sql` may still be edited in place; if your local
+dev database reports a Flyway checksum mismatch, recreate it with `docker compose down -v`.
+From the first tagged release on, migrations are additive-only.
 
 ## Design principles
 

@@ -3,6 +3,31 @@
 Requirements that surfaced during slice 1 but belong to later slices. Each slice's
 `/speckit-specify` run MUST consume its section here.
 
+## Cross-slice — capability parity with mutable-record identity systems
+
+Identity services built on mutable rows (one row per source object, upserted in place)
+offer conveniences that immutability removes; each needs an audit-preserving
+replacement:
+
+- **R-X1 Steward corrections (was: `PATCH /guest-identities`)** — corrections enter as
+  ordinary immutable records via a built-in `manual-corrections` source system, so
+  survivorship surfaces them and the audit trail shows who corrected what and when.
+  Later: a first-class steward endpoint that writes such records.
+- **R-X2 Correction protection / "our data wins" (was: invalid-email guard)** —
+  recency-only survivorship lets the next source update overwrite a steward correction.
+  Survivorship v2 needs per-source trust ranking (manual-corrections > PMS > channel
+  manager) and/or steward field-pinning; also suppress values whose extraction was
+  flagged invalid from the golden profile (today a malformed email still appears in
+  `extracted`, only flagged).
+- **R-X3 Forced manual attach/merge (was: `PATCH /persons` re-link)** — detach exists
+  (unmerge) and queued conflicts exist (match-review), but a steward cannot yet merge
+  two guests without a pending review. Add an audited manual-merge operation
+  (REVIEW_CONFIRM-style event, matcher `manual-merge`).
+- **R-X4 Storage growth** — append-per-observation grows where the old upsert did not.
+  R4-1's emit-on-change rule removes most noise; if growth ever matters, add a
+  retention/compaction policy for superseded observations that preserves the
+  MergeEvent audit chain.
+
 ## Slice 3 — Timeline / journey
 
 ### R3-1: "What reservations does this guest have?" (current associations, not observations)

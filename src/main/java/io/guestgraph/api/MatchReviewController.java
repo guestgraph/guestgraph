@@ -41,7 +41,7 @@ public class MatchReviewController {
           review.status().name(),
           review.sourceRecordId(),
           review.candidateGuestId(),
-          Map.of("type", review.identifierType().name(), "value", review.identifierValue()),
+          Map.of("type", review.identifierType(), "value", review.identifierValue()),
           review.reason(),
           review.matcherName(),
           review.confidence(),

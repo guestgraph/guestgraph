@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="guestgraph"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+  <description>
+    GuestGraph code conventions enforced mechanically (see CLAUDE.md). Kept deliberately
+    small: formatting is Spotless's job, architecture is ArchUnit's — PMD covers what
+    neither can see in source form.
+  </description>
+
+  <!-- Types are referenced by simple name with a proper import, never inline FQN.
+       (JPQL strings are unaffected — PMD only sees Java syntax.) -->
+  <rule ref="category/java/codestyle.xml/UnnecessaryFullyQualifiedName"/>
+  <rule ref="category/java/codestyle.xml/UnnecessaryImport"/>
+</ruleset>

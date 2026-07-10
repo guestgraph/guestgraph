@@ -1,7 +1,9 @@
 package io.guestgraph.persistence;
 
+import io.guestgraph.domain.BlockKey;
 import io.guestgraph.domain.NormalizedIdentifier;
 import io.guestgraph.domain.SourceRecord;
+import io.guestgraph.persistence.entity.RecordBlockKeyEntity;
 import io.guestgraph.persistence.entity.RecordIdentifierEntity;
 import io.guestgraph.persistence.entity.SourceRecordEntity;
 import io.guestgraph.persistence.entity.SourceSystemEntity;
@@ -55,6 +57,14 @@ public class SourceRecordStore {
     }
     em.persist(entity);
     em.flush();
+  }
+
+  public void insertBlockKeys(UUID tenantId, UUID sourceRecordId, List<BlockKey> keys) {
+    for (BlockKey key : keys) {
+      em.persist(
+          new RecordBlockKeyEntity(
+              UUID.randomUUID(), tenantId, sourceRecordId, key.type(), key.value()));
+    }
   }
 
   public Optional<UUID> findIdByExternalKey(

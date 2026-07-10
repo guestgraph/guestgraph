@@ -52,6 +52,14 @@ Research resolves implementation-level choices.
   the breakdown); renormalization avoids punishing sparse-but-consistent records;
   the corpus, not intuition, fixes the final numbers — weights are constants shipped
   with `fuzzy-rules-v1`, not tenant config (only thresholds are per-tenant, per spec).
+- **As tuned during TDD** (refinements over the sketch above, all in `FuzzyMatcher`):
+  renormalized scores are damped by evidence coverage (`score ×= 0.85 + 0.15·Σweights`)
+  so sparse agreement reads as good evidence, not certainty; all fuzzy scores are
+  **capped at 0.999** — certainty is reserved for deterministic identifiers, which makes
+  `auto_merge_threshold = 1.0` structurally mean "off" (FR-006) instead of relying on
+  float behavior; the masked-alias signal is a weight-0 contribution (it explains
+  candidacy in the breakdown without inflating the score) and masked-origin candidates
+  are additionally capped to the review band in `CompositeStrategy`.
 - **Alternatives considered**: Fellegi–Sunter log-likelihood weights (statistically
   principled but needs match/non-match frequency estimates — that's the ML slice);
   rule cascade without scores (loses the band policy and breakdown).
@@ -91,6 +99,11 @@ Research resolves implementation-level choices.
   (not representatives) keeps enforcement a pure membership test with no re-derivation
   when clusters later reshuffle. Volume stays trivial (unmerges are rare; a 5×10 split
   writes 50 rows).
+- **Known narrow gap (accepted)**: the gate downgrades would-be *merges*; a fuzzy
+  decision already in the review band that happens to cross a rule is queued as an
+  ordinary fuzzy review without citing the rule. Reachable only via unmerge-replay of a
+  previously rejected record; the split itself always holds. Annotating those reviews
+  is a candidate refinement for slice 2.x.
 - **Alternatives considered**: guest-id pairs (break on merge/delete); identifier-value
   suppression (blocks the identifier for everyone, not the pair — different feature,
   that's what quality rules are for).

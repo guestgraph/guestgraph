@@ -1,12 +1,15 @@
 package io.guestgraph.resolution;
 
+import io.guestgraph.domain.BlockKey;
 import io.guestgraph.domain.Guest;
+import io.guestgraph.domain.IdentifierQualityRule;
 import io.guestgraph.domain.IngestStatus;
 import io.guestgraph.domain.MatchReview;
 import io.guestgraph.domain.MergeEvent;
 import io.guestgraph.domain.MergeEventKind;
 import io.guestgraph.domain.NormalizedIdentifier;
 import io.guestgraph.domain.ReviewStatus;
+import io.guestgraph.domain.RuleEffect;
 import io.guestgraph.domain.SourceRecord;
 import io.guestgraph.survivorship.GoldenProfileDeriver;
 import java.math.BigDecimal;
@@ -33,6 +36,7 @@ public class ResolutionEngine {
   private final GraphPort graph;
   private final ResolutionStrategy strategy;
   private final GoldenProfileDeriver profileDeriver;
+  private final QualityRuleGate qualityRuleGate = new QualityRuleGate();
 
   public ResolutionEngine(
       GraphPort graph, ResolutionStrategy strategy, GoldenProfileDeriver profileDeriver) {
@@ -65,6 +69,9 @@ public class ResolutionEngine {
         case REVIEW -> reviewDecisions.add(decision);
       }
     }
+    applyQualityRuleGate(record, matchDecisions, matchedGuests, reviewDecisions);
+    applyNegativeRuleGate(record, matchDecisions, matchedGuests, reviewDecisions);
+
     // A guest safely matched via another identifier needs no parallel review entry.
     reviewDecisions.removeIf(d -> matchedGuests.contains(d.guestId()));
 
@@ -75,15 +82,126 @@ public class ResolutionEngine {
     return new ResolutionOutcome(executed.status(), executed.guestId(), reviewIds);
   }
 
+  /**
+   * PERFECT_MATCH identifiers merge only with exact name agreement (FR-013). The rule governs the
+   * identifier, not the guest: a guest also matched via a clean identifier still merges. A guest
+   * supported ONLY by gated identifiers with disagreeing names is vetoed wholesale — all its
+   * decisions leave the match set so the executed event's evidence and confidence reflect only what
+   * actually merged (Constitution IV).
+   */
+  private void applyQualityRuleGate(
+      SourceRecord record,
+      List<MatchDecision> matchDecisions,
+      Set<UUID> matchedGuests,
+      List<MatchDecision> reviewDecisions) {
+    List<IdentifierQualityRule> qualityRules = graph.qualityRules(record.tenantId());
+    for (UUID guestId : List.copyOf(matchedGuests)) {
+      List<MatchDecision> supporting =
+          matchDecisions.stream().filter(d -> guestId.equals(d.guestId())).toList();
+      boolean allGated =
+          !supporting.isEmpty()
+              && supporting.stream()
+                  .allMatch(
+                      d ->
+                          d.identifier() != null
+                              && qualityRuleGate
+                                  .effectFor(qualityRules, d.identifier())
+                                  .filter(e -> e == RuleEffect.PERFECT_MATCH)
+                                  .isPresent());
+      if (allGated
+          && !qualityRuleGate.namesAgreeExactly(
+              record.extracted(), graph.guestProfile(record.tenantId(), guestId))) {
+        matchedGuests.remove(guestId);
+        matchDecisions.removeAll(supporting);
+        MatchDecision first = supporting.getFirst();
+        reviewDecisions.add(
+            new MatchDecision(
+                first.guestId(),
+                first.identifier(),
+                first.blockKey(),
+                MatchDecision.Disposition.REVIEW,
+                first.matcherName(),
+                first.confidence(),
+                first.recordsSharingIdentifier(),
+                "perfect-match rule requires exact name agreement — " + first.reason(),
+                first.signals()));
+      }
+    }
+  }
+
+  /**
+   * FR-010: no silent merge may cross a steward's do-not-merge rule. Greedily admits matched guests
+   * into the would-be cluster; any guest whose records a rule separates from the cluster so far is
+   * downgraded to a review citing the rule.
+   */
+  private void applyNegativeRuleGate(
+      SourceRecord record,
+      List<MatchDecision> matchDecisions,
+      Set<UUID> matchedGuests,
+      List<MatchDecision> reviewDecisions) {
+    List<UUID> clusterRecords = new ArrayList<>();
+    clusterRecords.add(record.id());
+    for (UUID guestId : List.copyOf(matchedGuests)) {
+      List<UUID> side = graph.recordIdsOfGuest(record.tenantId(), guestId);
+      if (graph.negativeRuleBetween(record.tenantId(), clusterRecords, side)) {
+        // Veto the guest wholesale: none of its decisions may execute or appear in the
+        // executed event's evidence.
+        List<MatchDecision> supporting =
+            matchDecisions.stream().filter(d -> guestId.equals(d.guestId())).toList();
+        matchedGuests.remove(guestId);
+        matchDecisions.removeAll(supporting);
+        MatchDecision first = supporting.getFirst();
+        reviewDecisions.add(
+            new MatchDecision(
+                first.guestId(),
+                first.identifier(),
+                first.blockKey(),
+                MatchDecision.Disposition.REVIEW,
+                first.matcherName(),
+                first.confidence(),
+                first.recordsSharingIdentifier(),
+                "do-not-merge rule in effect — " + first.reason(),
+                first.signals()));
+      } else {
+        clusterRecords.addAll(side);
+      }
+    }
+  }
+
   private List<MatchCandidate> findCandidates(SourceRecord record, Set<UUID> excludedGuestIds) {
     List<MatchCandidate> candidates = new ArrayList<>();
+    Set<UUID> exactGuests = new LinkedHashSet<>();
+    List<IdentifierQualityRule> qualityRules = graph.qualityRules(record.tenantId());
     for (NormalizedIdentifier identifier : record.identifiers()) {
+      // IGNORE / MASKED_ALIAS: the identifier connects nothing — also silences
+      // identifier rows written before the rule existed (R2-4).
+      boolean silenced =
+          qualityRuleGate
+              .effectFor(qualityRules, identifier)
+              .filter(e -> e != RuleEffect.PERFECT_MATCH)
+              .isPresent();
+      if (silenced) {
+        continue;
+      }
       int sharing =
           graph.recordsSharingIdentifier(record.tenantId(), identifier.type(), identifier.value());
       for (UUID guestId :
           graph.guestIdsByIdentifier(record.tenantId(), identifier.type(), identifier.value())) {
         if (!excludedGuestIds.contains(guestId)) {
-          candidates.add(new MatchCandidate(guestId, identifier, sharing));
+          candidates.add(MatchCandidate.exact(guestId, identifier, sharing));
+          exactGuests.add(guestId);
+        }
+      }
+    }
+    // Fuzzy candidates: guests sharing a blocking key, minus those already found exactly.
+    Set<UUID> fuzzyGuests = new LinkedHashSet<>();
+    for (BlockKey key : graph.blockKeysOfRecord(record.tenantId(), record.id())) {
+      for (UUID guestId : graph.guestIdsByBlockKey(record.tenantId(), key.type(), key.value())) {
+        if (!excludedGuestIds.contains(guestId)
+            && !exactGuests.contains(guestId)
+            && fuzzyGuests.add(guestId)) {
+          candidates.add(
+              MatchCandidate.fuzzy(guestId, key, graph.guestProfile(record.tenantId(), guestId)));
         }
       }
     }
@@ -156,8 +274,8 @@ public class ResolutionEngine {
               ReviewStatus.PENDING,
               record.id(),
               decision.guestId(),
-              decision.identifier().type(),
-              decision.identifier().value(),
+              decision.originType(),
+              decision.originValue(),
               decision.reason(),
               decision.matcherName(),
               decision.confidence(),
@@ -202,12 +320,12 @@ public class ResolutionEngine {
       Map<String, Object> match = new LinkedHashMap<>();
       match.put("guestId", decision.guestId().toString());
       match.put(
-          "identifier",
-          Map.of(
-              "type", decision.identifier().type().name(),
-              "value", decision.identifier().value()));
+          "identifier", Map.of("type", decision.originType(), "value", decision.originValue()));
       match.put("recordsSharingIdentifier", decision.recordsSharingIdentifier());
       match.put("reason", decision.reason());
+      if (decision.signals() != null) {
+        match.put("signals", decision.signals().asEvidence());
+      }
       matches.add(match);
     }
     Map<String, Object> evidence = new LinkedHashMap<>();

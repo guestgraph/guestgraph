@@ -1,8 +1,11 @@
 package io.guestgraph.config;
 
+import io.guestgraph.resolution.CompositeStrategy;
 import io.guestgraph.resolution.DeterministicMatcher;
 import io.guestgraph.resolution.ExplainOperation;
+import io.guestgraph.resolution.FuzzyMatcher;
 import io.guestgraph.resolution.GraphPort;
+import io.guestgraph.resolution.MatchingPolicy;
 import io.guestgraph.resolution.ResolutionEngine;
 import io.guestgraph.resolution.ResolutionStrategy;
 import io.guestgraph.resolution.ReviewDecisionOperation;
@@ -20,8 +23,12 @@ public class ResolutionConfig {
   }
 
   @Bean
-  public ResolutionStrategy resolutionStrategy() {
-    return new DeterministicMatcher();
+  public ResolutionStrategy resolutionStrategy(GraphPort graph) {
+    return new CompositeStrategy(
+        new DeterministicMatcher(),
+        new FuzzyMatcher(),
+        new MatchingPolicy(),
+        graph::matchingConfig);
   }
 
   @Bean

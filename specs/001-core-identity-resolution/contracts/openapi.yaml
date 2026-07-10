@@ -481,7 +481,16 @@ components:
         status: { type: string, enum: [PENDING, CONFIRMED, REJECTED] }
         sourceRecordId: { type: string, format: uuid }
         candidateGuestId: { type: string, format: uuid }
-        identifier: { $ref: "#/components/schemas/Identifier" }
+        identifier:
+          type: object
+          description: >
+            What connected the candidate. Since feature 002, type is an open string:
+            exact-identifier types (EMAIL, PHONE, LOYALTY_ID, ID_DOCUMENT, EXTERNAL_KEY)
+            or fuzzy blocking-key types (NAME_PHONETIC_BIRTHYEAR, NAME_INITIALS_BIRTHDATE,
+            PHONE_SUFFIX7, EMAIL_LOCALPART, EMAIL_MASKED).
+          properties:
+            type: { type: string }
+            value: { type: string }
         reason:
           type: string
           examples: ["identifier shared by 41 records (threshold 10)"]

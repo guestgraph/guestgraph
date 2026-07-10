@@ -2,6 +2,7 @@ package io.guestgraph.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -220,7 +221,7 @@ class IngestResolutionApiTest extends PostgresIntegrationTest {
 
   @Test
   void concurrentIngestSharingAnIdentifierYieldsOneConsistentGuest() throws Exception {
-    List<CompletableFuture<JsonNode>> futures = new java.util.ArrayList<>();
+    List<CompletableFuture<JsonNode>> futures = new ArrayList<>();
     for (int i = 0; i < 8; i++) {
       String body =
           """

@@ -52,13 +52,16 @@ public abstract class PostgresIntegrationTest {
   void resetDatabase() {
     jdbc.sql(
             """
-                TRUNCATE match_review, resolution_link, identifier, merge_event,
-                         record_identifier, source_record, guest, source_system
+                TRUNCATE match_review, negative_match_rule, identifier_quality_rule,
+                         resolution_link, identifier, merge_event, record_identifier,
+                         record_block_key, source_record, guest, source_system
                 """)
         .update();
     seedTenant(TENANT_A, "acme", TENANT_A_KEY);
     seedTenant(TENANT_B, "globex", TENANT_B_KEY);
-    jdbc.sql("UPDATE tenant SET review_threshold = 10").update();
+    jdbc.sql(
+            "UPDATE tenant SET review_threshold = 10, auto_merge_threshold = 1.000, review_floor = 0.750")
+        .update();
   }
 
   private void seedTenant(UUID tenantId, String slug, String apiKey) {

@@ -1,16 +1,20 @@
 package io.guestgraph.persistence.mapper;
 
 import io.guestgraph.domain.Guest;
+import io.guestgraph.domain.IdentifierQualityRule;
 import io.guestgraph.domain.MatchReview;
 import io.guestgraph.domain.MergeEvent;
+import io.guestgraph.domain.NegativeMatchRule;
 import io.guestgraph.domain.NormalizedIdentifier;
 import io.guestgraph.domain.SourceRecord;
 import io.guestgraph.domain.SourceSystem;
 import io.guestgraph.domain.Tenant;
 import io.guestgraph.persistence.entity.GuestEntity;
 import io.guestgraph.persistence.entity.IdentifierEntity;
+import io.guestgraph.persistence.entity.IdentifierQualityRuleEntity;
 import io.guestgraph.persistence.entity.MatchReviewEntity;
 import io.guestgraph.persistence.entity.MergeEventEntity;
+import io.guestgraph.persistence.entity.NegativeMatchRuleEntity;
 import io.guestgraph.persistence.entity.RecordIdentifierEntity;
 import io.guestgraph.persistence.entity.SourceRecordEntity;
 import io.guestgraph.persistence.entity.SourceSystemEntity;
@@ -54,4 +58,13 @@ public interface DomainMappers {
   MatchReview toDomain(MatchReviewEntity entity);
 
   List<MatchReview> toDomainReviews(List<MatchReviewEntity> entities);
+
+  NegativeMatchRule toDomain(NegativeMatchRuleEntity entity);
+
+  List<NegativeMatchRule> toDomainNegativeRules(List<NegativeMatchRuleEntity> entities);
+
+  @Mapping(target = "builtin", constant = "false")
+  IdentifierQualityRule toDomain(IdentifierQualityRuleEntity entity);
+
+  List<IdentifierQualityRule> toDomainQualityRules(List<IdentifierQualityRuleEntity> entities);
 }

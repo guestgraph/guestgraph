@@ -28,9 +28,9 @@ replacement:
   retention/compaction policy for superseded observations that preserves the
   MergeEvent audit chain.
 
-## Slice 2 — Probabilistic matching (additions)
+## Slice 2 — Probabilistic matching (additions) — ✅ consumed by specs/002-probabilistic-matching
 
-- **R2-1 Negative match rules (persistent do-not-merge)** — v1 unmerge exclusions bind
+- **R2-1 Negative match rules (persistent do-not-merge)** — ✅ delivered in slice 2 — v1 unmerge exclusions bind
   only the replay of the detached records; a *fresh* record carrying the shared
   identifier legitimately re-merges the guests (visibly, via a MERGE event). When a
   steward has explicitly split two people, matchers should be able to consult a

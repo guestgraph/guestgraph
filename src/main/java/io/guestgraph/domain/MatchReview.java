@@ -11,7 +11,7 @@ public record MatchReview(
     ReviewStatus status,
     UUID sourceRecordId,
     UUID candidateGuestId,
-    IdentifierType identifierType,
+    String identifierType,
     String identifierValue,
     String reason,
     String matcherName,

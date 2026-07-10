@@ -107,13 +107,14 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         "204": { description: Deleted }
-        "400":
-          description: Attempt to delete a built-in rule
+        "401": { $ref: "#/components/responses/Problem" }
+        "404":
+          description: >
+            Unknown rule id — including built-ins, which carry no id and therefore
+            cannot be addressed for deletion
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/ProblemDetails" }
-        "401": { $ref: "#/components/responses/Problem" }
-        "404": { $ref: "#/components/responses/Problem" }
 
   /negative-rules:
     get:

@@ -3,6 +3,7 @@ package io.guestgraph.persistence.entity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import org.hibernate.annotations.Immutable;
@@ -17,6 +18,8 @@ public class TenantEntity {
   private String slug;
   private String name;
   private int reviewThreshold;
+  private BigDecimal autoMergeThreshold;
+  private BigDecimal reviewFloor;
   private Instant createdAt;
 
   protected TenantEntity() {}
@@ -35,6 +38,14 @@ public class TenantEntity {
 
   public int getReviewThreshold() {
     return reviewThreshold;
+  }
+
+  public BigDecimal getAutoMergeThreshold() {
+    return autoMergeThreshold;
+  }
+
+  public BigDecimal getReviewFloor() {
+    return reviewFloor;
   }
 
   public Instant getCreatedAt() {

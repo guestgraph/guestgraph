@@ -2,12 +2,15 @@ package io.guestgraph.resolution;
 
 import io.guestgraph.domain.MergeEvent;
 import io.guestgraph.domain.MergeEventKind;
+import io.guestgraph.domain.NegativeMatchRule;
+import io.guestgraph.domain.NegativeRuleOrigin;
 import io.guestgraph.domain.SourceRecord;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -38,7 +41,7 @@ public class UnmergeOperation {
   public UnmergeResult unmerge(UUID tenantId, UUID guestId, List<UUID> requestedRecordIds) {
     // Dedupe + null-guard: a repeated id must not replay (and re-link) the same record twice.
     List<UUID> sourceRecordIds =
-        requestedRecordIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        requestedRecordIds.stream().filter(Objects::nonNull).distinct().toList();
     if (sourceRecordIds.isEmpty()) {
       throw new InvalidUnmergeException("No source record ids given to detach");
     }
@@ -59,6 +62,15 @@ public class UnmergeOperation {
     }
 
     graph.unlinkRecords(tenantId, guestId, sourceRecordIds);
+    // R2-1: the split sticks — a rule between every detached and every remaining record.
+    for (UUID detachedId : sourceRecordIds) {
+      for (UUID remainingId : byId.keySet()) {
+        if (!sourceRecordIds.contains(remainingId)) {
+          graph.saveNegativeRule(
+              NegativeMatchRule.of(tenantId, detachedId, remainingId, NegativeRuleOrigin.UNMERGE));
+        }
+      }
+    }
     MergeEvent unmergeEvent =
         new MergeEvent(
             UUID.randomUUID(),

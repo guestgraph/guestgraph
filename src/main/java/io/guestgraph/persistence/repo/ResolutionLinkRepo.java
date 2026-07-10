@@ -2,6 +2,7 @@ package io.guestgraph.persistence.repo;
 
 import io.guestgraph.persistence.entity.ResolutionLinkEntity;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.Modifying;
@@ -22,6 +23,13 @@ public interface ResolutionLinkRepo extends Repository<ResolutionLinkEntity, UUI
   @Query(
       "select count(l) from ResolutionLinkEntity l where l.tenantId = :tenantId and l.guestId = :guestId")
   int countByGuest(@Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId);
+
+  @Query(
+      """
+            select l.sourceRecordId from ResolutionLinkEntity l
+            where l.tenantId = :tenantId and l.guestId = :guestId
+            """)
+  List<UUID> recordIdsByGuest(@Param("tenantId") UUID tenantId, @Param("guestId") UUID guestId);
 
   /** Re-points all links of {@code fromGuestId} to {@code toGuestId} (merge). */
   @Modifying(flushAutomatically = true, clearAutomatically = true)

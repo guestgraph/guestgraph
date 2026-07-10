@@ -33,7 +33,8 @@ class ResolutionScenarioTest {
     List<MergeEvent> events = fx.graph.events();
     assertThat(events).hasSize(1);
     assertThat(events.getFirst().kind()).isEqualTo(MergeEventKind.CREATE);
-    assertThat(events.getFirst().matcherName()).isEqualTo(DeterministicMatcher.NAME);
+    // Slice 2: CREATE is attributed to the whole strategy chain (no matcher matched).
+    assertThat(events.getFirst().matcherName()).contains(DeterministicMatcher.NAME);
     assertThat(events.getFirst().confidence()).isEqualByComparingTo(BigDecimal.ONE);
   }
 
@@ -451,11 +452,10 @@ class ResolutionScenarioTest {
   }
 
   @Test
-  void freshRecordSharingTheIdentifierAfterUnmergeRemergesWithATrace() {
-    // Pins the v1 unmerge semantics (US3-AS3): the exclusion binds the *replay* of the
-    // detached records; it is not a persistent do-not-merge rule. A brand-new record
-    // carrying the shared identifier is fresh evidence and may re-merge the guests —
-    // but never silently: the MERGE event makes the re-merge visible in explain.
+  void freshRecordSharingTheIdentifierAfterUnmergeDoesNotReuniteTheSplit() {
+    // Slice 2 (R2-1) supersedes the v1 semantics this test used to pin: the unmerge now
+    // writes a persistent do-not-merge rule, so fresh evidence can no longer silently
+    // re-merge the pair — it attaches to one side and parks the other for review.
     EngineFixture fx = new EngineFixture();
     fx.record("r1").email("shared@example.com").resolve();
     ResolutionOutcome guest = fx.record("r2").email("shared@example.com").resolve();
@@ -465,13 +465,10 @@ class ResolutionScenarioTest {
 
     ResolutionOutcome fresh = fx.record("r3").email("shared@example.com").resolve();
 
-    assertThat(fresh.status()).isEqualTo(IngestStatus.MERGED);
-    fx.assertClusters(Set.of(Set.of("r1", "r2", "r3")));
-    List<MergeEventKind> kinds =
-        new ExplainOperation(fx.graph)
-            .explain(EngineFixture.TENANT, fresh.guestId()).stream().map(MergeEvent::kind).toList();
-    // The full story is auditable: original merge chain, the unmerge, and the re-merge.
-    assertThat(kinds).contains(MergeEventKind.UNMERGE, MergeEventKind.MERGE);
+    assertThat(fresh.status()).isEqualTo(IngestStatus.ATTACHED);
+    assertThat(fresh.pendingReviewIds()).isNotEmpty();
+    // Still two clusters: the split held; the human decides via the parked review.
+    assertThat(fx.graph.clusters()).hasSize(2);
   }
 
   @Test

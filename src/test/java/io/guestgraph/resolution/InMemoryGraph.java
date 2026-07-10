@@ -1,20 +1,28 @@
 package io.guestgraph.resolution;
 
+import io.guestgraph.domain.BlockKey;
+import io.guestgraph.domain.BlockKeyType;
 import io.guestgraph.domain.Guest;
+import io.guestgraph.domain.IdentifierQualityRule;
 import io.guestgraph.domain.IdentifierType;
 import io.guestgraph.domain.MatchReview;
+import io.guestgraph.domain.MatchingConfig;
 import io.guestgraph.domain.MergeEvent;
+import io.guestgraph.domain.NegativeMatchRule;
 import io.guestgraph.domain.NormalizedIdentifier;
 import io.guestgraph.domain.ReviewStatus;
 import io.guestgraph.domain.SourceRecord;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -150,7 +158,7 @@ public class InMemoryGraph implements GraphPort {
     // Mirrors MergeEventRepo.findByGuestIds ordering: oldest first (stable on ties).
     return events.stream()
         .filter(e -> guestIds.contains(e.guestId()))
-        .sorted(java.util.Comparator.comparing(MergeEvent::createdAt))
+        .sorted(Comparator.comparing(MergeEvent::createdAt))
         .toList();
   }
 
@@ -207,6 +215,101 @@ public class InMemoryGraph implements GraphPort {
   @Override
   public Optional<MatchReview> findReview(UUID tenantId, UUID reviewId) {
     return reviews.stream().filter(r -> r.id().equals(reviewId)).findFirst();
+  }
+
+  private final Map<UUID, List<BlockKey>> blockKeysByRecord = new LinkedHashMap<>();
+  private final List<NegativeMatchRule> negativeRules = new ArrayList<>();
+  private final List<IdentifierQualityRule> tenantQualityRules = new ArrayList<>();
+  private BigDecimal autoMergeThreshold = new BigDecimal("1.000");
+  private BigDecimal reviewFloor = new BigDecimal("0.750");
+
+  public void registerBlockKeys(UUID recordId, List<BlockKey> keys) {
+    blockKeysByRecord.put(recordId, List.copyOf(keys));
+  }
+
+  public void setBands(String autoMergeThreshold, String reviewFloor) {
+    this.autoMergeThreshold = new BigDecimal(autoMergeThreshold);
+    this.reviewFloor = new BigDecimal(reviewFloor);
+  }
+
+  public void addQualityRule(IdentifierQualityRule rule) {
+    tenantQualityRules.add(rule);
+  }
+
+  public List<NegativeMatchRule> negativeRules() {
+    return List.copyOf(negativeRules);
+  }
+
+  @Override
+  public List<UUID> guestIdsByBlockKey(UUID tenantId, BlockKeyType type, String valueNormalized) {
+    BlockKey wanted = new BlockKey(type, valueNormalized);
+    return blockKeysByRecord.entrySet().stream()
+        .filter(e -> e.getValue().contains(wanted))
+        .map(e -> linkByRecord.get(e.getKey()))
+        .filter(Objects::nonNull)
+        .distinct()
+        .toList();
+  }
+
+  @Override
+  public List<BlockKey> blockKeysOfRecord(UUID tenantId, UUID sourceRecordId) {
+    return blockKeysByRecord.getOrDefault(sourceRecordId, List.of());
+  }
+
+  @Override
+  public Map<String, Object> guestProfile(UUID tenantId, UUID guestId) {
+    Guest guest = guests.get(guestId);
+    return guest != null ? guest.profile() : Map.of();
+  }
+
+  @Override
+  public MatchingConfig matchingConfig(UUID tenantId) {
+    return new MatchingConfig(autoMergeThreshold, reviewFloor, reviewThreshold);
+  }
+
+  @Override
+  public List<UUID> recordIdsOfGuest(UUID tenantId, UUID guestId) {
+    return linkByRecord.entrySet().stream()
+        .filter(e -> e.getValue().equals(guestId))
+        .map(Map.Entry::getKey)
+        .toList();
+  }
+
+  @Override
+  public boolean negativeRuleBetween(
+      UUID tenantId, Collection<UUID> recordsA, Collection<UUID> recordsB) {
+    return negativeRules.stream()
+        .anyMatch(
+            r ->
+                (recordsA.contains(r.recordA()) && recordsB.contains(r.recordB()))
+                    || (recordsB.contains(r.recordA()) && recordsA.contains(r.recordB())));
+  }
+
+  @Override
+  public void saveNegativeRule(NegativeMatchRule rule) {
+    boolean duplicate =
+        negativeRules.stream()
+            .anyMatch(
+                r -> r.recordA().equals(rule.recordA()) && r.recordB().equals(rule.recordB()));
+    if (!duplicate) {
+      negativeRules.add(rule);
+    }
+  }
+
+  @Override
+  public void liftNegativeRulesBetween(
+      UUID tenantId, Collection<UUID> recordsA, Collection<UUID> recordsB) {
+    negativeRules.removeIf(
+        r ->
+            (recordsA.contains(r.recordA()) && recordsB.contains(r.recordB()))
+                || (recordsB.contains(r.recordA()) && recordsA.contains(r.recordB())));
+  }
+
+  @Override
+  public List<IdentifierQualityRule> qualityRules(UUID tenantId) {
+    List<IdentifierQualityRule> all = new ArrayList<>(BuiltinQualityRules.RULES);
+    all.addAll(tenantQualityRules);
+    return all;
   }
 
   @Override

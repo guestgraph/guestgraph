@@ -27,7 +27,7 @@
   <properties>
     <java.version>25</java.version>
     <libphonenumber.version>9.0.34</libphonenumber.version>
-    <testcontainers.version>1.21.4</testcontainers.version>
+    <testcontainers.version>2.0.5</testcontainers.version>
     <mapstruct.version>1.6.3</mapstruct.version>
     <archunit.version>1.4.2</archunit.version>
     <spotless.version>3.8.0</spotless.version>
@@ -101,12 +101,12 @@
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>postgresql</artifactId>
+      <artifactId>testcontainers-postgresql</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

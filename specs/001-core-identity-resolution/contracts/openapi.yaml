@@ -341,11 +341,22 @@ components:
           examples: ["opera-pms"]
         externalKey:
           type: string
-          description: Record id in the source; dedup key together with sourceSystem
+          description: >
+            Identifies this OBSERVATION of the source record, not the underlying business
+            object — dedup key together with sourceSystem. Records are immutable snapshots:
+            when the source mutates an object over its lifecycle (e.g. the guest data on a
+            PMS reservation is edited), each version must arrive with its own externalKey
+            (reservation id + modification timestamp / version / event id), or the update is
+            silently absorbed as DUPLICATE_IGNORED. Reuse the same externalKey only for
+            idempotent redelivery of the identical version (webhook retries).
+          examples: ["RES-123:2026-07-09T14:30:00Z"]
         recordTimestamp:
           type: [string, "null"]
           format: date-time
-          description: When the source produced this record; used by survivorship
+          description: >
+            When the source produced this version; drives survivorship (most recent
+            non-null field wins), so later versions of the same object supersede earlier
+            ones in the golden profile
         payload:
           type: object
           description: >

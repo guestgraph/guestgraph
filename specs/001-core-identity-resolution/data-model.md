@@ -69,7 +69,7 @@ relationships only, on purpose: relationships are stable, field lists drift.
 | id | uuid | PK |
 | tenant_id | uuid | FK → tenant, NOT NULL |
 | source_system_id | uuid | FK → source_system, NOT NULL |
-| external_key | text | NOT NULL — record id in the source; UNIQUE (tenant_id, source_system_id, external_key) = ingest dedup key |
+| external_key | text | NOT NULL — id of this *observation* (version) of the source object, not the object itself (mutable source objects submit each version under a new key); UNIQUE (tenant_id, source_system_id, external_key) = ingest dedup key |
 | payload | jsonb | NOT NULL — original as received; UPDATE-guard trigger (R2) |
 | extracted | jsonb | NOT NULL — normalized profile fields parsed from the payload |
 | record_timestamp | timestamptz | NULL — source-provided; survivorship falls back to received_at (R7) |

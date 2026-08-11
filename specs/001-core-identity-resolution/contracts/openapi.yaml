@@ -2,10 +2,11 @@ openapi: 3.1.0
 info:
   title: GuestGraph Core API
   version: "1.0.0"
+  # Written to concatenate with later features' descriptions into the served /api-docs.
   description: >
-    Tenant-scoped guest identity resolution: ingest source records, resolve identities
-    deterministically, query golden profiles, explain and reverse merges, review uncertain
-    matches. All errors are RFC 9457 problem details. Feature: 001-core-identity-resolution.
+    Tenant-scoped guest identity resolution: ingest source records, resolve identities,
+    query golden profiles, explain and reverse merges, review uncertain matches. All
+    errors are RFC 9457 problem details; auth is the per-tenant X-API-Key.
   license:
     name: Apache-2.0
 servers:
@@ -13,10 +14,21 @@ servers:
 security:
   - ApiKey: []
 
+tags:
+  - name: Source Systems
+    description: Registry of the systems records are ingested from
+  - name: Ingestion
+    description: Immutable record intake with synchronous identity resolution
+  - name: Guests
+    description: Golden profiles, their source records, explainability, and unmerge
+  - name: Match Reviews
+    description: Human decisions on uncertain matches
+
 paths:
   /source-systems:
     post:
       operationId: registerSourceSystem
+      tags: [Source Systems]
       summary: Register a source system for the caller's tenant
       requestBody:
         required: true
@@ -45,6 +57,7 @@ paths:
   /records:
     post:
       operationId: ingestRecords
+      tags: [Ingestion]
       summary: Ingest guest record(s); resolves synchronously
       description: >
         Accepts a single record or a batch (max 1000). Each record is stored immutably and
@@ -79,6 +92,7 @@ paths:
   /guests/{guestId}:
     get:
       operationId: getGuest
+      tags: [Guests]
       summary: Golden profile + identifiers
       parameters: [{ $ref: "#/components/parameters/GuestId" }]
       responses:
@@ -93,6 +107,7 @@ paths:
   /guests/{guestId}/records:
     get:
       operationId: getGuestRecords
+      tags: [Guests]
       summary: The guest's source records, as originally received
       parameters: [{ $ref: "#/components/parameters/GuestId" }]
       responses:
@@ -113,6 +128,7 @@ paths:
   /guests/{guestId}/explain:
     get:
       operationId: explainGuest
+      tags: [Guests]
       summary: Why these records are one guest — the full merge-event chain
       parameters: [{ $ref: "#/components/parameters/GuestId" }]
       responses:
@@ -134,6 +150,7 @@ paths:
   /guests/{guestId}/unmerge:
     post:
       operationId: unmergeGuest
+      tags: [Guests]
       summary: Detach wrongly linked record(s) and replay resolution
       description: >
         Removes the resolution links of the given source records, records an UNMERGE event
@@ -189,6 +206,7 @@ paths:
   /guests:
     get:
       operationId: lookupGuests
+      tags: [Guests]
       summary: Look up guests by identifier value
       description: >
         The value is normalized before matching. A miss returns an empty list. Without an
@@ -226,6 +244,7 @@ paths:
   /match-reviews:
     get:
       operationId: listMatchReviews
+      tags: [Match Reviews]
       summary: Pending uncertain matches
       parameters:
         - name: status
@@ -259,6 +278,7 @@ paths:
   /match-reviews/{reviewId}:
     post:
       operationId: decideMatchReview
+      tags: [Match Reviews]
       summary: Confirm or reject a queued match (exactly once)
       parameters:
         - name: reviewId

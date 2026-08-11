@@ -2,11 +2,14 @@ openapi: 3.1.0
 info:
   title: GuestGraph Core API — probabilistic matching additions
   version: "1.1.0"
+  # Only the NEW endpoints of feature 002 — the slice-1 surface is unchanged and the
+  # conformance gate checks the union of all feature contracts. The description below is
+  # a self-contained paragraph appended to earlier features' in the served /api-docs.
   description: >
-    NEW endpoints introduced by feature 002-probabilistic-matching. The slice-1 surface
-    (specs/001-core-identity-resolution/contracts/openapi.yaml) is unchanged; the OpenAPI
-    conformance gate checks the union of all feature contracts. All errors are RFC 9457
-    problem details; auth is the per-tenant X-API-Key.
+    Probabilistic matching: fuzzy candidates are scored and either auto-merged, queued for
+    review, or discarded per tenant-configurable thresholds; per-tenant identifier quality
+    rules govern how much an identifier may prove (including masked OTA relay emails);
+    persistent do-not-merge rules keep steward splits from silently re-merging.
   license:
     name: Apache-2.0
 servers:
@@ -14,10 +17,19 @@ servers:
 security:
   - ApiKey: []
 
+tags:
+  - name: Matching Config
+    description: Per-tenant score thresholds for fuzzy matching
+  - name: Identifier Rules
+    description: Per-tenant identifier trust (ignore, perfect-match, masked-alias)
+  - name: Negative Rules
+    description: Persistent do-not-merge record pairs written by steward decisions
+
 paths:
   /config/matching:
     get:
       operationId: getMatchingConfig
+      tags: [Matching Config]
       summary: The tenant's matching thresholds
       responses:
         "200":
@@ -28,6 +40,7 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
     put:
       operationId: updateMatchingConfig
+      tags: [Matching Config]
       summary: Update the tenant's matching thresholds (transactional — all or nothing)
       requestBody:
         required: true
@@ -50,6 +63,7 @@ paths:
   /config/identifier-rules:
     get:
       operationId: listIdentifierRules
+      tags: [Identifier Rules]
       summary: Identifier quality rules — tenant-added plus built-in defaults
       responses:
         "200":
@@ -66,6 +80,7 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
     post:
       operationId: addIdentifierRule
+      tags: [Identifier Rules]
       summary: Add a tenant identifier quality rule
       requestBody:
         required: true
@@ -99,6 +114,7 @@ paths:
   /config/identifier-rules/{ruleId}:
     delete:
       operationId: deleteIdentifierRule
+      tags: [Identifier Rules]
       summary: Delete a tenant rule (built-ins are not deletable)
       parameters:
         - name: ruleId
@@ -119,6 +135,7 @@ paths:
   /negative-rules:
     get:
       operationId: listNegativeRules
+      tags: [Negative Rules]
       summary: Do-not-merge rules (written by unmerge and review rejections)
       parameters:
         - name: limit
@@ -145,6 +162,7 @@ paths:
   /negative-rules/{ruleId}:
     delete:
       operationId: deleteNegativeRule
+      tags: [Negative Rules]
       summary: Lift a do-not-merge rule (steward act) — the pair may merge on next evidence
       parameters:
         - name: ruleId

@@ -2,10 +2,15 @@ package io.guestgraph.api;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.StringJoiner;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -54,8 +59,10 @@ public class ApiDocsController {
   }
 
   /**
-   * Later features add paths and schemas; on collision (e.g. ProblemDetails redefined per feature)
-   * the earliest definition wins — feature contracts must not redefine earlier features' paths.
+   * Later features add paths, schemas, and tags; on collision (e.g. ProblemDetails redefined per
+   * feature) the earliest definition wins — feature contracts must not redefine earlier features'
+   * paths. The served info sums up all features: descriptions concatenate in feature order, the
+   * version is the latest feature's, and the license comes from the first contract.
    */
   private static Map<String, Object> merge(Map<String, Object>[] documents) {
     if (documents.length == 0) {
@@ -65,10 +72,27 @@ public class ApiDocsController {
     Map<String, Object> info = new LinkedHashMap<>(section(merged, "info"));
     info.put("title", "GuestGraph Core API");
     merged.put("info", info);
-    Map<String, Object> paths = new LinkedHashMap<>(section(merged, "paths"));
-    Map<String, Object> components = new LinkedHashMap<>(section(merged, "components"));
-    for (int i = 1; i < documents.length; i++) {
+    Map<String, Object> paths = new LinkedHashMap<>();
+    Map<String, Object> components = new LinkedHashMap<>();
+    StringJoiner description = new StringJoiner("\n\n");
+    List<Object> tags = new ArrayList<>();
+    Set<Object> tagNames = new LinkedHashSet<>();
+    for (int i = 0; i < documents.length; i++) {
       Map<String, Object> document = documents[i];
+      Map<String, Object> documentInfo = section(document, "info");
+      if (documentInfo.get("description") instanceof String text) {
+        description.add(text.strip());
+      }
+      if (documentInfo.get("version") != null) {
+        info.put("version", documentInfo.get("version"));
+      }
+      if (document.get("tags") instanceof List<?> documentTags) {
+        for (Object tag : documentTags) {
+          if (tag instanceof Map<?, ?> tagMap && tagNames.add(tagMap.get("name"))) {
+            tags.add(tag);
+          }
+        }
+      }
       section(document, "paths")
           .forEach(
               (path, item) -> {
@@ -87,11 +111,9 @@ public class ApiDocsController {
                   entryMap.forEach((name, schema) -> target.putIfAbsent((String) name, schema));
                 }
               });
-      Object version = section(document, "info").get("version");
-      if (version != null) {
-        info.put("version", version);
-      }
     }
+    info.put("description", description.toString());
+    merged.put("tags", tags);
     merged.put("paths", paths);
     merged.put("components", components);
     return merged;

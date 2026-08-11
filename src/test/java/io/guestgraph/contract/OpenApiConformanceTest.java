@@ -72,6 +72,32 @@ class OpenApiConformanceTest extends PostgresIntegrationTest {
 
     assertThat(published).isEqualTo(documentedOperations());
 
+    // The info block sums up ALL features: concatenated descriptions, license, latest version.
+    @SuppressWarnings("unchecked")
+    Map<String, Object> info = (Map<String, Object>) document.get("info");
+    assertThat((String) info.get("description"))
+        .as("description covers every feature contract")
+        .contains("identity resolution")
+        .contains("robabilistic matching");
+    assertThat(info.get("license")).isEqualTo(Map.of("name", "Apache-2.0"));
+
+    // Every operation is grouped under a declared tag — the "controller" split of the doc.
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> tagList = (List<Map<String, Object>>) document.get("tags");
+    Set<Object> declaredTags = new LinkedHashSet<>();
+    tagList.forEach(tag -> declaredTags.add(tag.get("name")));
+    paths.forEach(
+        (path, item) ->
+            item.forEach(
+                (method, operation) -> {
+                  if (operation instanceof Map<?, ?> op) {
+                    assertThat((List<?>) op.get("tags"))
+                        .as("operation %s %s carries a declared tag", method, path)
+                        .isNotEmpty()
+                        .allSatisfy(tag -> assertThat(declaredTags).contains(tag));
+                  }
+                }));
+
     // And it is reachable without an API key — the document contains no tenant data.
     ResponseEntity<String> response =
         api(null).get().uri("/api-docs").retrieve().toEntity(String.class);

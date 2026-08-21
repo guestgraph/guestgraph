@@ -154,7 +154,14 @@ Examples of foundational tasks (adjust based on your project):
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] TXXX [P] Documentation updates in docs/
+- [ ] TXXX [P] Documentation updates in docs/ — including `docs/matching.md` when matching
+      behaviour changed (a new matcher version is an append, never an edit: existing merge
+      events name the matcher that decided them and must stay readable)
+- [ ] TXXX [P] Update `docs/roadmap-notes.md` (mark consumed items, amend superseded ones) and
+      `README.md` if the API surface or roadmap status changed
+- [ ] TXXX [P] Update the org profile README at `guestgraph/.github` (`profile/README.md`) if
+      the roadmap status changed — it is a separate repository, so it does not move with this
+      one and has drifted before
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/

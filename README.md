@@ -7,11 +7,38 @@ Guest data in hospitality is scattered — PMS, POS, booking engines, loyalty pr
 ## What it does
 
 - **Ingest** raw guest records from any source system via a REST API — originals are stored immutably, never lost
-- **Resolve** identities deterministically on strong identifiers (email, phone, loyalty ID, external keys), with transitive merging
+- **Resolve** identities deterministically on strong identifiers (email, phone, loyalty ID, external keys), with transitive merging — and probabilistically on everything else, without ever merging silently
 - **Explain** every merge — ask *"why are these records one guest?"* and get the full decision chain
 - **Unmerge** safely when resolution got it wrong — every merge is reversible
 - **Query** unified golden profiles and their source records, per tenant
 - **Timeline** what a guest currently *has* — reservations and other source objects, resolved to the person who holds them now
+
+## How matching decides
+
+Identity resolution is a **layered confidence model**. Each layer decides only what it is
+entitled to decide and hands the rest upward, and every layer's decisions are explainable and
+reversible:
+
+1. **Deterministic identifiers** — a shared email, phone, loyalty id, or ID document merges at confidence 1.0
+2. **Probabilistic scoring** — merges only above a threshold the tenant chose; otherwise it queues for a human
+3. **A human steward** — the final word, and their splits stick: an unmerge writes a persistent do-not-merge rule that new evidence cannot silently cross
+
+Probabilistic matching works in two stages, using two different algorithms because the stages
+need different answers. **Blocking** finds candidates that share no identifier at all — a
+database index can only answer *equal*, so name phonetics (Double Metaphone) collapse Müller,
+Mueller, and Miller onto one key. **Scoring** then grades each candidate 0–1 with
+Jaro-Winkler string similarity over a weighted feature vector (name .45, birthdate .25, phone
+.15, email .10, address .05), damped when few signals were observed and heavily penalised when
+birthdates conflict — different birthdates are evidence of *different people*, and that
+outweighs a strong name match.
+
+**Automatic fuzzy merging ships off.** The auto-merge threshold defaults to 1.0 and fuzzy scores
+are capped at 0.999, so the auto-merge band is provably empty until a tenant explicitly lowers
+it. Out of the box, probabilistic matching is a suggestion engine: it surfaces the duplicates
+exact matching cannot see, with a per-signal breakdown showing why, and a human decides.
+
+Full reference — blocking keys, weights, band semantics, worked examples, and the known recall
+limits — in [`docs/matching.md`](docs/matching.md).
 
 ## How it fits together
 

@@ -1,5 +1,6 @@
 package io.guestgraph.persistence;
 
+import io.guestgraph.domain.Actor;
 import io.guestgraph.domain.BlockKey;
 import io.guestgraph.domain.BlockKeyType;
 import io.guestgraph.domain.Guest;
@@ -173,6 +174,8 @@ public class PostgresGraph implements GraphPort {
             event.confidence(),
             event.evidence(),
             event.excludedGuestIds(),
+            event.actor().type(),
+            event.actor().id(),
             event.createdAt()));
   }
 
@@ -296,8 +299,9 @@ public class PostgresGraph implements GraphPort {
 
   @Override
   public void saveNegativeRule(NegativeMatchRule rule) {
-    // Hibernate AUTO-flush makes same-transaction rules visible; duplicates are absorbed
-    // by the unique (tenant, record_a, record_b) constraint at the API level upstream.
+    // Hibernate AUTO-flush makes same-transaction rules visible; duplicates are absorbed by
+    // the partial unique index over ACTIVE rules — a pair whose earlier rule was lifted may be
+    // split again, which is why the index is partial rather than plain.
     if (!negativeMatchRuleRepo.existsBetween(
         rule.tenantId(), List.of(rule.recordA()), List.of(rule.recordB()))) {
       em.persist(
@@ -307,15 +311,18 @@ public class PostgresGraph implements GraphPort {
               rule.recordA(),
               rule.recordB(),
               rule.origin(),
+              rule.actor().type(),
+              rule.actor().id(),
               rule.createdAt()));
     }
   }
 
   @Override
   public void liftNegativeRulesBetween(
-      UUID tenantId, Collection<UUID> recordsA, Collection<UUID> recordsB) {
+      UUID tenantId, Collection<UUID> recordsA, Collection<UUID> recordsB, Actor actor) {
     if (!recordsA.isEmpty() && !recordsB.isEmpty()) {
-      negativeMatchRuleRepo.liftBetween(tenantId, recordsA, recordsB);
+      negativeMatchRuleRepo.liftBetween(
+          tenantId, recordsA, recordsB, Instant.now(), actor.type(), actor.id());
     }
   }
 

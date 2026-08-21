@@ -1,5 +1,6 @@
 package io.guestgraph.resolution;
 
+import io.guestgraph.domain.Actor;
 import io.guestgraph.domain.BlockKey;
 import io.guestgraph.domain.BlockKeyType;
 import io.guestgraph.domain.Guest;
@@ -96,9 +97,13 @@ public interface GraphPort {
 
   void saveNegativeRule(NegativeMatchRule rule);
 
-  /** Confirm across a rule lifts every spanning rule (FR-011). */
+  /**
+   * Confirm across a rule lifts every spanning rule (FR-011). Lifting stamps the rule rather than
+   * deleting it: overriding a steward's split is itself a decision, so it needs an actor, and a
+   * deleted row has nowhere to keep one (FR-016a).
+   */
   void liftNegativeRulesBetween(
-      UUID tenantId, Collection<UUID> recordsA, Collection<UUID> recordsB);
+      UUID tenantId, Collection<UUID> recordsA, Collection<UUID> recordsB, Actor actor);
 
   /** Tenant quality rules merged with the built-in defaults. */
   List<IdentifierQualityRule> qualityRules(UUID tenantId);

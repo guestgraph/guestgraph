@@ -2,9 +2,11 @@ package io.guestgraph.persistence;
 
 import io.guestgraph.domain.BlockKey;
 import io.guestgraph.domain.NormalizedIdentifier;
+import io.guestgraph.domain.RecordObject;
 import io.guestgraph.domain.SourceRecord;
 import io.guestgraph.persistence.entity.RecordBlockKeyEntity;
 import io.guestgraph.persistence.entity.RecordIdentifierEntity;
+import io.guestgraph.persistence.entity.RecordObjectEntity;
 import io.guestgraph.persistence.entity.SourceRecordEntity;
 import io.guestgraph.persistence.entity.SourceSystemEntity;
 import io.guestgraph.persistence.mapper.DomainMappers;
@@ -65,6 +67,27 @@ public class SourceRecordStore {
           new RecordBlockKeyEntity(
               UUID.randomUUID(), tenantId, sourceRecordId, key.type(), key.value()));
     }
+  }
+
+  /**
+   * The business object this record describes (FR-001). Absent when the submitter sent no object
+   * identity, and absent when the submitted version could not be parsed — such a record stays
+   * stored and flagged but joins no roster (FR-024).
+   */
+  public void insertRecordObject(RecordObject recordObject) {
+    em.persist(
+        new RecordObjectEntity(
+            recordObject.id(),
+            recordObject.tenantId(),
+            recordObject.sourceRecordId(),
+            recordObject.sourceSystemId(),
+            recordObject.objectType(),
+            recordObject.objectId(),
+            recordObject.role(),
+            recordObject.position(),
+            recordObject.objectVersion(),
+            recordObject.businessStart(),
+            recordObject.businessEnd()));
   }
 
   public Optional<UUID> findIdByExternalKey(

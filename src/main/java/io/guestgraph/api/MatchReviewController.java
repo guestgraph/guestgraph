@@ -1,12 +1,15 @@
 package io.guestgraph.api;
 
+import io.guestgraph.auth.ActorResolver;
 import io.guestgraph.auth.TenantContext;
+import io.guestgraph.domain.Actor;
 import io.guestgraph.domain.MatchReview;
 import io.guestgraph.domain.ReviewStatus;
 import io.guestgraph.persistence.MatchReviewQueryService;
 import io.guestgraph.resolution.GraphMutationService;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,9 +36,15 @@ public class MatchReviewController {
       BigDecimal confidence,
       Instant createdAt,
       Instant decidedAt,
+      ActorDto actor,
       UUID decisionEventId) {
 
     static MatchReviewDto of(MatchReview review) {
+      return of(review, null);
+    }
+
+    /** FR-015: a decision response names the actor that made it, not only explain does. */
+    static MatchReviewDto of(MatchReview review, Actor actor) {
       return new MatchReviewDto(
           review.id(),
           review.status().name(),
@@ -47,6 +56,7 @@ public class MatchReviewController {
           review.confidence(),
           review.createdAt(),
           review.decidedAt(),
+          ActorDto.of(actor),
           review.decisionEventId());
     }
   }
@@ -66,15 +76,17 @@ public class MatchReviewController {
   public Map<String, Object> list(
       @RequestParam(value = "status", defaultValue = "PENDING") ReviewStatus status,
       @RequestParam(value = "limit", defaultValue = "50") int limit,
-      @RequestParam(value = "offset", defaultValue = "0") int offset) {
-    if (limit < 1 || limit > 200 || offset < 0) {
-      throw new BadRequestException("limit must be 1..200 and offset >= 0");
+      @RequestParam(value = "cursor", required = false) String cursor) {
+    if (limit < 1 || limit > 200) {
+      throw new BadRequestException("limit must be 1..200");
     }
     MatchReviewQueryService.ReviewPage page =
-        queryService.list(TenantContext.tenantId(), status, limit, offset);
-    return Map.of(
-        "reviews", page.reviews().stream().map(MatchReviewDto::of).toList(),
-        "total", page.total());
+        queryService.list(TenantContext.tenantId(), status, limit, cursor);
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("reviews", page.reviews().stream().map(MatchReviewDto::of).toList());
+    body.put("total", page.total());
+    body.put("nextCursor", page.nextCursor());
+    return body;
   }
 
   @PostMapping("/{reviewId}")
@@ -85,7 +97,8 @@ public class MatchReviewController {
           case "REJECT" -> false;
           default -> throw new BadRequestException("Field 'decision' must be CONFIRM or REJECT");
         };
+    Actor actor = ActorResolver.actor();
     return MatchReviewDto.of(
-        mutationService.decideReview(TenantContext.tenantId(), reviewId, confirm));
+        mutationService.decideReview(TenantContext.tenantId(), reviewId, confirm, actor), actor);
   }
 }

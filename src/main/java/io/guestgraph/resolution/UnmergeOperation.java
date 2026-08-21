@@ -1,5 +1,6 @@
 package io.guestgraph.resolution;
 
+import io.guestgraph.domain.Actor;
 import io.guestgraph.domain.MergeEvent;
 import io.guestgraph.domain.MergeEventKind;
 import io.guestgraph.domain.NegativeMatchRule;
@@ -38,7 +39,8 @@ public class UnmergeOperation {
     this.engine = engine;
   }
 
-  public UnmergeResult unmerge(UUID tenantId, UUID guestId, List<UUID> requestedRecordIds) {
+  public UnmergeResult unmerge(
+      UUID tenantId, UUID guestId, List<UUID> requestedRecordIds, Actor actor) {
     // Dedupe + null-guard: a repeated id must not replay (and re-link) the same record twice.
     List<UUID> sourceRecordIds =
         requestedRecordIds.stream().filter(Objects::nonNull).distinct().toList();
@@ -67,7 +69,8 @@ public class UnmergeOperation {
       for (UUID remainingId : byId.keySet()) {
         if (!sourceRecordIds.contains(remainingId)) {
           graph.saveNegativeRule(
-              NegativeMatchRule.of(tenantId, detachedId, remainingId, NegativeRuleOrigin.UNMERGE));
+              NegativeMatchRule.of(
+                  tenantId, detachedId, remainingId, NegativeRuleOrigin.UNMERGE, actor));
         }
       }
     }
@@ -83,6 +86,7 @@ public class UnmergeOperation {
             BigDecimal.ONE,
             Map.of("reason", "operator unmerge — detached records replay excluding this guest"),
             List.of(guestId),
+            actor,
             Instant.now());
     graph.saveEvent(unmergeEvent);
 

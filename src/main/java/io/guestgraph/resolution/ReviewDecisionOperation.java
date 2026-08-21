@@ -1,5 +1,6 @@
 package io.guestgraph.resolution;
 
+import io.guestgraph.domain.Actor;
 import io.guestgraph.domain.MatchReview;
 import io.guestgraph.domain.MergeEvent;
 import io.guestgraph.domain.MergeEventKind;
@@ -32,7 +33,7 @@ public class ReviewDecisionOperation {
     this.engine = engine;
   }
 
-  public MatchReview decide(UUID tenantId, UUID reviewId, boolean confirm) {
+  public MatchReview decide(UUID tenantId, UUID reviewId, boolean confirm, Actor actor) {
     MatchReview review =
         graph
             .findReview(tenantId, reviewId)
@@ -43,13 +44,15 @@ public class ReviewDecisionOperation {
 
     // The event must exist before any link references it (FK created_by_event_id).
     MergeEvent event =
-        confirm ? buildConfirmEvent(tenantId, review) : recordReject(tenantId, review);
+        confirm
+            ? buildConfirmEvent(tenantId, review, actor)
+            : recordReject(tenantId, review, actor);
     graph.saveEvent(event);
     if (confirm) {
-      liftRules(tenantId, review, event);
+      liftRules(tenantId, review, event, actor);
       applyConfirm(tenantId, event);
     } else {
-      writeRejectRules(tenantId, review);
+      writeRejectRules(tenantId, review, actor);
     }
     ReviewStatus newStatus = confirm ? ReviewStatus.CONFIRMED : ReviewStatus.REJECTED;
     if (graph.decideReview(tenantId, reviewId, newStatus, event.id()) == 0) {
@@ -67,7 +70,7 @@ public class ReviewDecisionOperation {
         .orElseThrow(() -> new ReviewNotFoundException(reviewId));
   }
 
-  private MergeEvent buildConfirmEvent(UUID tenantId, MatchReview review) {
+  private MergeEvent buildConfirmEvent(UUID tenantId, MatchReview review, Actor actor) {
     UUID recordGuest =
         graph
             .guestOfRecord(tenantId, review.sourceRecordId())
@@ -88,6 +91,7 @@ public class ReviewDecisionOperation {
         BigDecimal.ONE,
         evidence(review, "confirmed by steward — merge executed"),
         List.of(),
+        actor,
         Instant.now());
   }
 
@@ -100,18 +104,18 @@ public class ReviewDecisionOperation {
   }
 
   /** FR-011: an explicit human confirmation supersedes the earlier split. */
-  private void liftRules(UUID tenantId, MatchReview review, MergeEvent event) {
+  private void liftRules(UUID tenantId, MatchReview review, MergeEvent event, Actor actor) {
     List<UUID> candidateSide = graph.recordIdsOfGuest(tenantId, event.guestId());
     List<UUID> recordSide = new ArrayList<>();
     recordSide.add(review.sourceRecordId());
     for (UUID absorbed : event.absorbedGuestIds()) {
       recordSide.addAll(graph.recordIdsOfGuest(tenantId, absorbed));
     }
-    graph.liftNegativeRulesBetween(tenantId, recordSide, candidateSide);
+    graph.liftNegativeRulesBetween(tenantId, recordSide, candidateSide, actor);
   }
 
   /** FR-009: a rejection is a split that sticks. */
-  private void writeRejectRules(UUID tenantId, MatchReview review) {
+  private void writeRejectRules(UUID tenantId, MatchReview review, Actor actor) {
     // If the sides merged while the review was pending (repointPendingReviews), the
     // reviewed record already sits inside the candidate cluster — a "do not merge with
     // yourself" rule is meaningless and would violate the ordered-pair constraint.
@@ -132,11 +136,12 @@ public class ReviewDecisionOperation {
               tenantId,
               review.sourceRecordId(),
               candidateRecord,
-              NegativeRuleOrigin.REVIEW_REJECT));
+              NegativeRuleOrigin.REVIEW_REJECT,
+              actor));
     }
   }
 
-  private MergeEvent recordReject(UUID tenantId, MatchReview review) {
+  private MergeEvent recordReject(UUID tenantId, MatchReview review, Actor actor) {
     return new MergeEvent(
         UUID.randomUUID(),
         tenantId,
@@ -148,6 +153,7 @@ public class ReviewDecisionOperation {
         BigDecimal.ONE,
         evidence(review, "rejected by steward — records stay separate"),
         List.of(),
+        actor,
         Instant.now());
   }
 

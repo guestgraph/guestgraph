@@ -57,17 +57,30 @@ summarized recommendation.
 
 **Prerequisites to build (small, some earlier than slice 5):**
 
-1. **Actor identity** on decisions (`decided_by`: human user vs. named agent) — today
-   auth identifies only the tenant; the audit trail needs *who*. Also improves the
-   human-steward audit story; a candidate for slice 3/4 rather than waiting for 5.
+1. ~~**Actor identity** on decisions~~ — ✅ delivered in slice 3. Credentials are registered as
+   human- or agent-operated and carry a name; that type is the ceiling a request can never widen,
+   though a request may name the individual behind a shared credential. Merge events, review
+   decisions, unmerges, and do-not-merge rules all record it. Rules are now *lifted* rather than
+   deleted, so prerequisite 3 below has the data it needs: the actor who overrode a split sits
+   beside the actor who made it.
 2. **Scoped API credentials** — a review-only key: read + decide reviews, but no
    unmerge, no config changes, no lifting of negative rules.
 3. **FR-011 carve-out** — confirming across a do-not-merge rule lifts the rule; for
    agents this must be restricted: an agent never overrides a *human's* explicit split.
-   Enforceable once (1) exists.
+   Now enforceable: slice 3 records both the creating and the lifting actor on the same rule row,
+   so the check is a single-row comparison. Deliberately not enforced yet — it belongs with the
+   scoped credentials in (2).
 4. **PII/data-residency posture** — review evidence is personal data; an MCP-connected
    agent ships it to a model provider. Needs tenant consent surface and likely an
    on-prem/EU-residency model option in the commercial offering.
+
+## Cross-cutting decisions taken in later slices
+
+- **One paging idiom.** Slice 3 moved `/match-reviews` and `/negative-rules` off raw
+  `limit`/`offset` onto the same opaque keyset cursor the timeline uses. Offsets are a contract
+  commitment that foreclose moving a read into SQL or changing an ordering; a cursor keeps that
+  replaceable, and seeks rather than scanning-and-discarding on deep pages. Any new paged endpoint
+  uses `api/Cursor.java`.
 
 ## Scale levers (when volume demands, not before)
 
@@ -80,7 +93,7 @@ summarized recommendation.
 
 ## Slice 3 — Timeline / journey
 
-### R3-1: "What reservations does this guest have?" (current associations, not observations)
+### R3-1: "What reservations does this guest have?" — ✅ consumed by specs/003-timeline-journey
 
 Slice 1 answers *"what did we observe about this person"* (`GET /guests/{id}/records`);
 it deliberately does not answer *"what does this person currently have"*. Multiple
@@ -88,8 +101,15 @@ observations of the same source object (e.g. Apaleo reservation `R1` whose guest
 edited from person A to person B) live as independent immutable records on different
 guests — both guests' record lists reference R1, with no supersession link.
 
-Slice 3 must make source objects (reservation first) first-class **events** on resolved
-guests:
+Slice 3 made source objects (reservation first) first-class **associations** on resolved guests.
+Note what changed from the sketch below: rather than grouping by `(object, role slot)` and
+superseding slot by slot, **the object version became the unit of supersession** — the newest
+version's complete person roster determines who is on the object, and persons are never matched
+across versions. Sources carrying entity-less persons give no id to follow across edits, so slot
+tracking would have to guess, and would report a reassignment every time a guest list shrank. The
+roster model also makes *removal* detectable, which no slot scheme handles honestly.
+
+The original sketch:
 
 - Group observations by business-object identity (reservation id from the payload) and
   role slot (primaryGuest / additionalGuests[n] / booker).
@@ -97,13 +117,14 @@ guests:
   to the guest of the latest observation.
 - Query contract: for the A→B reassignment case, guest B's timeline returns R1;
   guest A returns nothing for R1 (or an explicitly closed/transferred association —
-  spec decision).
+  spec decision). **Decided**: omitted by default, returnable with `includePast=true` marked
+  ENDED, naming a successor only for a genuine one-to-one handover of the role.
 - The full observation history stays reachable (Constitution II — nothing is lost,
   supersession is a view, not a deletion).
 
 ## Slice 4 — Connectors
 
-### R4-1: externalKey convention for mutable, multi-person source objects (Apaleo pattern)
+### R4-1: externalKey convention for mutable, multi-person source objects (Apaleo pattern) — contract published by specs/003-timeline-journey; connectors remain slice 4
 
 `externalKey` identifies an *observation*, not the source object (see slice-1 API
 contract). For PMS reservations carrying entity-less persons the convention is:
@@ -123,8 +144,14 @@ e.g. XPGMSXGF-1:primaryGuest:2026-07-09T14:30:00Z
   observation (acceptable — the later state wins anyway).
 - `recordTimestamp` = the same `modified` value, so survivorship and slice-3
   supersession order observations identically.
-- **Emit only on person-data change**: the source bumps `modified` on *any* reservation
-  edit (dates, room, price). Emitting person records for every edit is identity-neutral
+- **Emit the complete roster, only when people changed** *(amended by slice 3 — was
+  "emit only on person-data change")*: a version carrying only the person who changed would read
+  as a booking that lost its other guests, because the newest version's roster **is** the answer
+  to who is on the object. So when any person's data or the guest list changed, emit every person
+  on that version. Edits touching no person at all still emit nothing, which is where essentially
+  all of the noise reduction lives. The original rationale, unchanged: the source bumps `modified`
+  on *any* reservation edit (dates, room, price). Emitting person records for every edit is
+  identity-neutral
   (they just re-attach) but pollutes the observation history and inflates the
   records-per-identifier count that feeds the review threshold — a chatty reservation
   could push a normal guest's email over the threshold and cause false review parkings.

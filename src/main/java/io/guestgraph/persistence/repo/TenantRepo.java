@@ -1,5 +1,6 @@
 package io.guestgraph.persistence.repo;
 
+import io.guestgraph.domain.Credential;
 import io.guestgraph.domain.MatchingConfig;
 import io.guestgraph.persistence.entity.TenantEntity;
 import java.math.BigDecimal;
@@ -12,14 +13,21 @@ import org.springframework.data.repository.query.Param;
 
 public interface TenantRepo extends Repository<TenantEntity, UUID> {
 
+  /** The tenant plus what the key acts as — the actor type a request can never widen (FR-014). */
   @TenantAgnostic(
-      "resolves which tenant an API key belongs to — the tenant is the output, not an input")
+      "authentication by API key hash: this lookup is what establishes the tenant, so it cannot"
+          + " itself be tenant-scoped")
   @Query(
       """
-            select t from TenantEntity t, ApiKeyEntity k
+            select new io.guestgraph.domain.Credential(
+                new io.guestgraph.domain.Tenant(
+                    t.id, t.slug, t.name, t.reviewThreshold,
+                    t.autoMergeThreshold, t.reviewFloor, t.createdAt),
+                k.actorType, k.actorName)
+            from TenantEntity t, ApiKeyEntity k
             where k.tenantId = t.id and k.keyHash = :keyHash and k.revokedAt is null
             """)
-  Optional<TenantEntity> findByApiKeyHash(@Param("keyHash") String keyHash);
+  Optional<Credential> findCredentialByApiKeyHash(@Param("keyHash") String keyHash);
 
   @Query("select t.reviewThreshold from TenantEntity t where t.id = :tenantId")
   Optional<Integer> reviewThreshold(@Param("tenantId") UUID tenantId);

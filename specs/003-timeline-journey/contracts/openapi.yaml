@@ -1,0 +1,253 @@
+openapi: 3.1.0
+info:
+  title: GuestGraph Core API — timeline & attributed decisions
+  version: "1.2.0"
+  # Only the NEW endpoints of feature 003 — the slice-1/2 paths are unchanged and the
+  # conformance gate checks the union of all feature contracts (operations, not schemas).
+  # Additive response fields on existing operations are specified in data-model.md:
+  #   POST /records            gains an optional sourceObject block
+  #   GET  /guests/{id}/explain and the review-decision response gain `actor`
+  #   GET  /negative-rules     gains `actor`, `liftedAt`, and `liftedActor`; DELETE now lifts
+  #                            the rule (it stays listed) rather than removing it
+  description: >
+    Guest timeline: source business objects such as reservations become associations on the
+    resolved guest. The newest object version's complete person roster determines who is
+    currently on an object; persons are never matched across versions. Every decision records
+    the actor that made it — the system, a named human steward, or a named agent.
+  license:
+    name: Apache-2.0
+servers:
+  - url: /api/v1
+security:
+  - ApiKey: []
+
+tags:
+  - name: Timeline
+    description: A resolved guest's current business-object associations
+  - name: Source Objects
+    description: A business object's current roster and full observation history
+
+paths:
+  /guests/{guestId}/timeline:
+    get:
+      tags: [Timeline]
+      operationId: getGuestTimeline
+      summary: The guest's current business-object associations
+      description: >
+        Associations the guest currently holds, ordered by business start and falling back to
+        the observation timestamp when the submitter supplied no business dates. An association
+        is current while the object's newest version roster places this guest in that role.
+        With includePast=true, associations the guest no longer holds are also returned with
+        status ENDED, naming the successor when exactly one guest holds that role now.
+      parameters:
+        - name: guestId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: includePast
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: Include associations the guest no longer holds.
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+          description: >
+            Opaque keyset cursor from a previous response's nextCursor. It encodes the
+            last-seen ordering key (business start plus object id), never an offset, so a
+            page is located by seeking rather than by skipping rows. Every paged endpoint in
+            this API uses the same cursor format: /match-reviews and /negative-rules were
+            migrated off raw offsets in this slice. An opaque cursor also keeps the read
+            implementation replaceable without an API change. Associations added between page
+            requests may still appear or shift — this is keyset paging, not a snapshot.
+      responses:
+        "200":
+          description: Associations page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Association" }
+                  nextCursor:
+                    type: [string, "null"]
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+
+  /source-objects/{sourceSystem}/{objectType}/{objectId}:
+    get:
+      tags: [Source Objects]
+      operationId: getSourceObject
+      summary: A business object's current roster and observation history
+      description: >
+        The object as the graph knows it: the newest version's roster — who is on it now, in
+        which role, resolved to which guest — and every observation of the object in version
+        order, including superseded ones and those belonging to guests no longer on it. The
+        history is a property of the object, not of any one guest, because a reassignment
+        spans two of them.
+      parameters:
+        - name: sourceSystem
+          in: path
+          required: true
+          schema: { type: string }
+          description: Source system code — the object namespace includes it.
+        - name: objectType
+          in: path
+          required: true
+          schema: { type: string }
+        - name: objectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The object, its current roster, and its observations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sourceSystem, objectType, objectId, currentVersion, roster, observations]
+                properties:
+                  sourceSystem: { type: string }
+                  objectType: { type: string }
+                  objectId: { type: string }
+                  currentVersion:
+                    type: string
+                    format: date-time
+                    description: The newest object version observed.
+                  businessStart: { type: [string, "null"], format: date-time }
+                  businessEnd: { type: [string, "null"], format: date-time }
+                  roster:
+                    type: array
+                    description: Who is on the object at the current version.
+                    items: { $ref: "#/components/schemas/RosterEntry" }
+                  observations:
+                    type: array
+                    description: Every observation, oldest version first.
+                    items: { $ref: "#/components/schemas/ObjectObservation" }
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  parameters:
+    # Accepted on every steward operation: review decisions, unmerge, and negative-rule lifts.
+    ActorId:
+      name: X-Actor-Id
+      in: header
+      required: false
+      schema: { type: string }
+      description: >
+        Names the individual acting behind a shared credential. Attribution only — it is
+        caller-asserted, unverified, and authorises nothing. Defaults to the credential's own
+        actor name.
+    ActorType:
+      name: X-Actor-Type
+      in: header
+      required: false
+      schema: { type: string, enum: [HUMAN, AGENT] }
+      description: >
+        Must match what the credential is registered as, if sent at all. A mismatch is refused
+        with an RFC 9457 400 and records nothing — the credential is the trust boundary, so a
+        request can never claim a stronger actor type than it was issued.
+
+  responses:
+    Problem:
+      description: RFC 9457 problem details
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required: [type, title, status]
+            properties:
+              type: { type: string }
+              title: { type: string }
+              status: { type: integer }
+              detail: { type: string }
+
+  schemas:
+    ObjectRole:
+      type: string
+      enum: [PRIMARY_GUEST, ADDITIONAL_GUEST, BOOKER]
+
+    Association:
+      type: object
+      required:
+        [sourceSystem, objectType, objectId, role, status, observationCount, currentObservation]
+      properties:
+        sourceSystem: { type: string }
+        objectType: { type: string }
+        objectId: { type: string }
+        role: { $ref: "#/components/schemas/ObjectRole" }
+        position:
+          type: [integer, "null"]
+          description: >
+            The position the source listed this person at. Descriptive only — it carries no
+            identity across versions, so a shifted position is not a reassignment.
+        status:
+          type: string
+          enum: [CURRENT, ENDED]
+          description: >
+            CURRENT while the object's newest roster places this guest in this role; ENDED once
+            it no longer does, whether the role passed to someone else or the guest was dropped.
+        successorGuestId:
+          type: [string, "null"]
+          format: uuid
+          description: >
+            For ENDED only, and only when exactly one guest holds this role in the current
+            roster. Null when the role has no single successor — including when the guest was
+            simply removed and nobody replaced them.
+        businessStart: { type: [string, "null"], format: date-time }
+        businessEnd: { type: [string, "null"], format: date-time }
+        observationCount:
+          type: integer
+          description: Observations of this object and role across all versions and guests.
+        currentObservation: { $ref: "#/components/schemas/ObjectObservation" }
+
+    RosterEntry:
+      type: object
+      required: [role, guestId, sourceRecordId]
+      properties:
+        role: { $ref: "#/components/schemas/ObjectRole" }
+        position: { type: [integer, "null"] }
+        guestId: { type: string, format: uuid }
+        sourceRecordId: { type: string, format: uuid }
+
+    ObjectObservation:
+      type: object
+      required: [sourceRecordId, objectVersion, role, guestId, recordTimestamp]
+      properties:
+        sourceRecordId: { type: string, format: uuid }
+        objectVersion:
+          type: string
+          format: date-time
+          description: The instant the source object recorded as its last modification.
+        role: { $ref: "#/components/schemas/ObjectRole" }
+        position: { type: [integer, "null"] }
+        guestId:
+          type: string
+          format: uuid
+          description: The guest this observation resolved to.
+        extracted:
+          type: object
+          additionalProperties: true
+          description: Normalized fields parsed from the payload at ingest.
+        recordTimestamp: { type: string, format: date-time }
+        needsReview: { type: boolean }

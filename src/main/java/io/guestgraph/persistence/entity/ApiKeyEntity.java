@@ -1,6 +1,9 @@
 package io.guestgraph.persistence.entity;
 
+import io.guestgraph.domain.ActorType;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -15,6 +18,11 @@ public class ApiKeyEntity {
   private UUID tenantId;
   private String keyHash;
   private String label;
+
+  @Enumerated(EnumType.STRING)
+  private ActorType actorType;
+
+  private String actorName;
   private Instant createdAt;
   private Instant revokedAt;
 
@@ -34,6 +42,14 @@ public class ApiKeyEntity {
 
   public String getLabel() {
     return label;
+  }
+
+  public ActorType getActorType() {
+    return actorType;
+  }
+
+  public String getActorName() {
+    return actorName;
   }
 
   public Instant getCreatedAt() {

@@ -242,7 +242,11 @@ class FuzzyScenarioTest {
     fx.record("r1").email("shared@example.com").resolve();
     ResolutionOutcome merged = fx.record("r2").email("shared@example.com").resolve();
     new UnmergeOperation(fx.graph, fx.engine)
-        .unmerge(EngineFixture.TENANT, merged.guestId(), List.of(fx.recordId("r2")));
+        .unmerge(
+            EngineFixture.TENANT,
+            merged.guestId(),
+            List.of(fx.recordId("r2")),
+            EngineFixture.ACTOR);
 
     // The steward split wrote a persistent rule.
     assertThat(fx.graph.negativeRules()).isNotEmpty();
@@ -266,7 +270,8 @@ class FuzzyScenarioTest {
     fx.record("r1").email("family@example.com").resolve();
     ResolutionOutcome parked = fx.record("r2").email("family@example.com").resolve();
     new ReviewDecisionOperation(fx.graph, fx.engine)
-        .decide(EngineFixture.TENANT, parked.pendingReviewIds().getFirst(), false);
+        .decide(
+            EngineFixture.TENANT, parked.pendingReviewIds().getFirst(), false, EngineFixture.ACTOR);
 
     assertThat(fx.graph.negativeRules()).isNotEmpty();
     assertThat(fx.graph.negativeRules().getFirst().origin())
@@ -286,18 +291,28 @@ class FuzzyScenarioTest {
     fx.record("r1").email("shared@example.com").resolve();
     ResolutionOutcome merged = fx.record("r2").email("shared@example.com").resolve();
     new UnmergeOperation(fx.graph, fx.engine)
-        .unmerge(EngineFixture.TENANT, merged.guestId(), List.of(fx.recordId("r2")));
+        .unmerge(
+            EngineFixture.TENANT,
+            merged.guestId(),
+            List.of(fx.recordId("r2")),
+            EngineFixture.ACTOR);
     ResolutionOutcome downgraded = fx.record("r3").email("shared@example.com").resolve();
     assertThat(downgraded.pendingReviewIds()).isNotEmpty();
 
     // A human confirms: merge executes, the split is superseded (FR-011).
     new ReviewDecisionOperation(fx.graph, fx.engine)
-        .decide(EngineFixture.TENANT, downgraded.pendingReviewIds().getFirst(), true);
+        .decide(
+            EngineFixture.TENANT,
+            downgraded.pendingReviewIds().getFirst(),
+            true,
+            EngineFixture.ACTOR);
 
     fx.assertClusters(Set.of(Set.of("r1", "r2", "r3")));
-    assertThat(fx.graph.negativeRules()).isEmpty();
+    // Lifted, not deleted (FR-016a): it no longer gates, but who overrode the split is on record.
+    assertThat(fx.graph.negativeRules()).allMatch(r -> !r.isActive());
+    assertThat(fx.graph.negativeRules().getFirst().liftedActor()).isEqualTo(EngineFixture.ACTOR);
 
-    // And the next evidence merges silently again — the rule is gone.
+    // And the next evidence merges silently again — nothing active stands in the way.
     ResolutionOutcome next = fx.record("r4").email("shared@example.com").resolve();
     assertThat(next.status()).isEqualTo(IngestStatus.ATTACHED);
   }
@@ -404,7 +419,11 @@ class FuzzyScenarioTest {
     // crash (self-pair rule) and writes no rules; the decision is still recorded.
     MatchReview decided =
         new ReviewDecisionOperation(fx.graph, fx.engine)
-            .decide(EngineFixture.TENANT, parked.pendingReviewIds().getFirst(), false);
+            .decide(
+                EngineFixture.TENANT,
+                parked.pendingReviewIds().getFirst(),
+                false,
+                EngineFixture.ACTOR);
 
     assertThat(decided.status()).isEqualTo(ReviewStatus.REJECTED);
     assertThat(fx.graph.negativeRules()).isEmpty();
@@ -453,7 +472,11 @@ class FuzzyScenarioTest {
     ResolutionOutcome b = fx.record("b").email("b@example.com").resolve();
     fx.graph.saveNegativeRule(
         NegativeMatchRule.of(
-            EngineFixture.TENANT, fx.recordId("a"), fx.recordId("b"), NegativeRuleOrigin.MANUAL));
+            EngineFixture.TENANT,
+            fx.recordId("a"),
+            fx.recordId("b"),
+            NegativeRuleOrigin.MANUAL,
+            EngineFixture.ACTOR));
 
     // The bridge matches both guests, each via TWO identifiers; guest b gets vetoed.
     ResolutionOutcome bridge =

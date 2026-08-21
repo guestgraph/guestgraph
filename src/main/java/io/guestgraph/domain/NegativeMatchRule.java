@@ -7,6 +7,10 @@ import java.util.UUID;
  * A steward split that sticks (R2-1): the clusters containing {@code recordA} and {@code recordB}
  * must never be silently merged, by any matcher. Record ids are immutable, so the rule survives
  * merges and unmerges; {@code recordA < recordB}.
+ *
+ * <p>Rules are lifted, never deleted (FR-016a): lifting is the act that overrides a steward's
+ * split, so it needs an actor of its own, and a deleted row has nowhere to keep one. A lifted rule
+ * stops gating but stays readable, and the pair may be split again.
  */
 public record NegativeMatchRule(
     UUID id,
@@ -14,10 +18,20 @@ public record NegativeMatchRule(
     UUID recordA,
     UUID recordB,
     NegativeRuleOrigin origin,
-    Instant createdAt) {
+    /** Who split the pair. */
+    Actor actor,
+    Instant createdAt,
+    /** When the rule stopped gating, or null while it still does. */
+    Instant liftedAt,
+    /** Who lifted it — the actor who overrode the split, kept beside the one who made it. */
+    Actor liftedActor) {
+
+  public boolean isActive() {
+    return liftedAt == null;
+  }
 
   public static NegativeMatchRule of(
-      UUID tenantId, UUID first, UUID second, NegativeRuleOrigin origin) {
+      UUID tenantId, UUID first, UUID second, NegativeRuleOrigin origin, Actor actor) {
     if (first.equals(second)) {
       throw new IllegalArgumentException("A do-not-merge rule needs two distinct records");
     }
@@ -27,6 +41,7 @@ public record NegativeMatchRule(
     boolean firstIsLower = first.toString().compareTo(second.toString()) < 0;
     UUID a = firstIsLower ? first : second;
     UUID b = firstIsLower ? second : first;
-    return new NegativeMatchRule(UUID.randomUUID(), tenantId, a, b, origin, Instant.now());
+    return new NegativeMatchRule(
+        UUID.randomUUID(), tenantId, a, b, origin, actor, Instant.now(), null, null);
   }
 }

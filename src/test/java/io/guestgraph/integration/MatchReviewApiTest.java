@@ -2,6 +2,8 @@ package io.guestgraph.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -155,6 +157,32 @@ class MatchReviewApiTest extends PostgresIntegrationTest {
     ResponseEntity<String> response = decideRaw(id, decision);
     assertThat(response.getStatusCode()).isEqualTo(expected);
     return json(response.getBody());
+  }
+
+  @Test
+  void cursorPagingDoesNotSkipEntriesWhenReviewsAreDecidedMidTraversal() {
+    setReviewThreshold(TENANT_A, 1);
+    for (int i = 0; i < 6; i++) {
+      ingest("p-" + i, "{\"email\":\"shared@example.com\"}");
+    }
+
+    List<String> seen = new ArrayList<>();
+    JsonNode first = get("/api/v1/match-reviews?limit=2");
+    first.get("reviews").forEach(r -> seen.add(r.get("id").asString()));
+
+    // A colleague decides one of the entries already walked past. Under offset paging this
+    // shifted the remaining rows and the next page silently skipped an entry.
+    decide(seen.getFirst(), "REJECT", HttpStatus.OK);
+
+    String cursor = first.get("nextCursor").asString();
+    while (cursor != null) {
+      JsonNode page = get("/api/v1/match-reviews?limit=2&cursor=" + cursor);
+      page.get("reviews").forEach(r -> seen.add(r.get("id").asString()));
+      cursor = page.get("nextCursor").isNull() ? null : page.get("nextCursor").asString();
+    }
+
+    assertThat(seen).doesNotHaveDuplicates();
+    assertThat(seen).hasSizeGreaterThanOrEqualTo(5);
   }
 
   private ResponseEntity<String> decideRaw(String id, String decision) {

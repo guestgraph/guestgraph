@@ -1,5 +1,6 @@
 package io.guestgraph.persistence.mapper;
 
+import io.guestgraph.domain.Actor;
 import io.guestgraph.domain.Guest;
 import io.guestgraph.domain.IdentifierQualityRule;
 import io.guestgraph.domain.MatchReview;
@@ -29,7 +30,10 @@ import org.mapstruct.ReportingPolicy;
  * build on a forgotten field — no silently dropped data. The write direction is deliberate
  * hand-written entity construction in the stores/adapter.
  */
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
+@Mapper(
+    componentModel = "spring",
+    unmappedTargetPolicy = ReportingPolicy.ERROR,
+    imports = Actor.class)
 public interface DomainMappers {
 
   Tenant toDomain(TenantEntity entity);
@@ -38,6 +42,9 @@ public interface DomainMappers {
 
   Guest toDomain(GuestEntity entity);
 
+  @Mapping(
+      target = "actor",
+      expression = "java(Actor.of(entity.getActorType(), entity.getActorId()))")
   MergeEvent toDomain(MergeEventEntity entity);
 
   @Mapping(target = "sourceSystemId", source = "sourceSystem.id")
@@ -59,6 +66,12 @@ public interface DomainMappers {
 
   List<MatchReview> toDomainReviews(List<MatchReviewEntity> entities);
 
+  @Mapping(
+      target = "actor",
+      expression = "java(Actor.of(entity.getActorType(), entity.getActorId()))")
+  @Mapping(
+      target = "liftedActor",
+      expression = "java(Actor.of(entity.getLiftedActorType(), entity.getLiftedActorId()))")
   NegativeMatchRule toDomain(NegativeMatchRuleEntity entity);
 
   List<NegativeMatchRule> toDomainNegativeRules(List<NegativeMatchRuleEntity> entities);

@@ -1,5 +1,6 @@
 package io.guestgraph.api;
 
+import io.guestgraph.auth.ActorResolver;
 import io.guestgraph.auth.TenantContext;
 import io.guestgraph.domain.IdentifierType;
 import io.guestgraph.domain.MergeEvent;
@@ -77,6 +78,7 @@ public class GuestController {
       BigDecimal confidence,
       Map<String, Object> evidence,
       List<UUID> excludedGuestIds,
+      ActorDto actor,
       Instant createdAt) {
 
     static MergeEventDto of(MergeEvent event) {
@@ -90,6 +92,7 @@ public class GuestController {
           event.confidence(),
           event.evidence(),
           event.excludedGuestIds(),
+          ActorDto.of(event.actor()),
           event.createdAt());
     }
   }
@@ -145,7 +148,8 @@ public class GuestController {
     UUID tenantId = TenantContext.tenantId();
     requireGuest(tenantId, guestId);
     UnmergeOperation.UnmergeResult result =
-        mutationService.unmerge(tenantId, guestId, request.sourceRecordIds());
+        mutationService.unmerge(
+            tenantId, guestId, request.sourceRecordIds(), ActorResolver.actor());
     return new UnmergeResponse(
         result.unmergeEventId(),
         result.remainingGuestId(),

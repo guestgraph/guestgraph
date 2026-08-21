@@ -14,7 +14,34 @@ public final class IngestDtos {
       String sourceSystem,
       String externalKey,
       Instant recordTimestamp,
-      Map<String, Object> payload) {}
+      Map<String, Object> payload,
+      SourceObjectDto sourceObject) {}
+
+  /**
+   * The business object this record describes (FR-001). Optional — records without it behave
+   * exactly as before.
+   *
+   * <p>{@code version} is the instant the source object itself records as last modified, and it is
+   * what decides the current roster. It must derive from source state alone: a submitter's own
+   * clock or a delivery event id would break idempotency across retries and backfills (FR-019).
+   *
+   * <p>{@code position} is descriptive. It is shown to users but confers no identity across
+   * versions, so a person shifting position when a guest list shrinks is not a reassignment.
+   *
+   * <p>These fields are the sole source of business-object identity; {@code externalKey} stays an
+   * opaque duplicate-detection token the service never parses (FR-001a).
+   */
+  public record SourceObjectDto(
+      String type,
+      String id,
+      String role,
+      Integer position,
+      Instant version,
+      Instant businessStart,
+      Instant businessEnd,
+      /** Present in the submission but not an instant — flagged, never guessed at. */
+      boolean businessStartUnparseable,
+      boolean businessEndUnparseable) {}
 
   /**
    * {@code status} always reports the real resolution outcome; {@code needsReview} flags a stored

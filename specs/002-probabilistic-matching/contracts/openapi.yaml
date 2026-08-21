@@ -141,9 +141,18 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
-        - name: offset
+        - name: includeLifted
           in: query
-          schema: { type: integer, minimum: 0, default: 0 }
+          required: false
+          schema: { type: boolean, default: false }
+          description: >
+            Include rules that have been lifted. Lifted rules stop gating merges but stay
+            readable with both actors (feature 003) — history, not a live constraint.
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+          description: Opaque keyset cursor from a previous response's nextCursor (feature 003 migrated this endpoint off raw offsets).
       responses:
         "200":
           description: Rules, newest first
@@ -157,6 +166,9 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/NegativeRule" }
                   total: { type: integer }
+                  nextCursor:
+                    type: [string, "null"]
+                    description: Opaque cursor for the next page, or null at the end.
         "401": { $ref: "#/components/responses/Problem" }
 
   /negative-rules/{ruleId}:
@@ -239,3 +251,21 @@ components:
         recordB: { type: string, format: uuid }
         origin: { type: string, enum: [UNMERGE, REVIEW_REJECT, MANUAL] }
         createdAt: { type: string, format: date-time }
+        # Added by feature 003: rules are lifted rather than deleted, so who overrode a
+        # steward's split is recorded beside who made it.
+        actor:
+          type: [object, "null"]
+          description: Who created the split. Null for rules predating actor identity.
+          properties:
+            type: { type: string, enum: [SYSTEM, HUMAN, AGENT] }
+            id: { type: string }
+        liftedAt:
+          type: [string, "null"]
+          format: date-time
+          description: When the rule stopped gating, or null while it still does.
+        liftedActor:
+          type: [object, "null"]
+          description: Who lifted it.
+          properties:
+            type: { type: string, enum: [SYSTEM, HUMAN, AGENT] }
+            id: { type: string }

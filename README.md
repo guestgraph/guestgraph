@@ -148,7 +148,7 @@ From the first tagged release on, migrations are additive-only.
 
 ## Design principles
 
-1. **Source records are immutable** — the golden profile is derived, the original data is sacred
+1. **Source records are immutable** — the golden profile is derived and can always be recomputed; corrections arrive as new records, never as edits
 2. **Every merge is explainable and reversible** — identity resolution you can audit and trust
 3. **Tenant-scoped from day one** — one instance serves many brands, properties, or customers
 4. **API-first** — everything the engine can do is reachable over the REST API

@@ -52,6 +52,12 @@ public class GuestQueryService {
         defaultPhoneRegion == null || defaultPhoneRegion.isBlank() ? null : defaultPhoneRegion;
   }
 
+  /** Existence only — no profile, no identifiers, no link count. */
+  @Transactional(readOnly = true)
+  public boolean guestExists(UUID tenantId, UUID guestId) {
+    return guestRepo.findGuest(tenantId, guestId).isPresent();
+  }
+
   public Optional<GuestView> findGuest(UUID tenantId, UUID guestId) {
     return guestRepo
         .findGuest(tenantId, guestId)

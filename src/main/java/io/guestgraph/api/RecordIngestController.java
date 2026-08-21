@@ -2,6 +2,7 @@ package io.guestgraph.api;
 
 import io.guestgraph.api.IngestDtos.IngestRecordRequest;
 import io.guestgraph.api.IngestDtos.IngestResult;
+import io.guestgraph.api.IngestDtos.SourceObjectDto;
 import io.guestgraph.auth.TenantContext;
 import io.guestgraph.ingest.IngestService;
 import io.guestgraph.ingest.UnknownSourceSystemException;
@@ -98,7 +99,56 @@ public class RecordIngestController {
     }
     @SuppressWarnings("unchecked")
     Map<String, Object> typedPayload = (Map<String, Object>) payloadMap;
-    return new IngestRecordRequest(sourceSystem, externalKey, recordTimestamp, typedPayload);
+    return new IngestRecordRequest(
+        sourceSystem, externalKey, recordTimestamp, typedPayload, parseSourceObject(map));
+  }
+
+  /**
+   * The optional business-object block. Note what does <em>not</em> throw here: a {@code version}
+   * that is present but unparseable yields a null version, so the record is stored and flagged
+   * rather than rejected (FR-024, Constitution III). Only a {@code sourceObject} that is not an
+   * object at all is a malformed envelope, like {@code payload}.
+   */
+  private SourceObjectDto parseSourceObject(Map<?, ?> map) {
+    Object raw = map.get("sourceObject");
+    if (raw == null) {
+      return null;
+    }
+    if (!(raw instanceof Map<?, ?> object)) {
+      throw new BadRequestException("Field 'sourceObject' must be a JSON object");
+    }
+    Object start = object.get("businessStart");
+    Object end = object.get("businessEnd");
+    return new SourceObjectDto(
+        asString(object.get("type")),
+        asString(object.get("id")),
+        asString(object.get("role")),
+        object.get("position") instanceof Number n ? n.intValue() : null,
+        asInstantOrNull(object.get("version")),
+        asInstantOrNull(start),
+        asInstantOrNull(end),
+        unparseable(start),
+        unparseable(end));
+  }
+
+  private static String asString(Object value) {
+    return value instanceof String s && !s.isBlank() ? s : null;
+  }
+
+  /** Supplied, but not an instant — worth a reason, unlike simply being absent. */
+  private static boolean unparseable(Object value) {
+    return value != null && asInstantOrNull(value) == null;
+  }
+
+  private static Instant asInstantOrNull(Object value) {
+    if (value instanceof String s && !s.isBlank()) {
+      try {
+        return Instant.parse(s);
+      } catch (DateTimeParseException e) {
+        return null; // flagged downstream, never a rejection
+      }
+    }
+    return null;
   }
 
   private String requireString(Map<?, ?> map, String field) {

@@ -2,6 +2,8 @@ package io.guestgraph.resolution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.guestgraph.domain.Actor;
+import io.guestgraph.domain.ActorType;
 import io.guestgraph.domain.IdentifierType;
 import io.guestgraph.domain.NormalizedIdentifier;
 import io.guestgraph.domain.SourceRecord;
@@ -23,6 +25,9 @@ import java.util.stream.Collectors;
 public class EngineFixture {
 
   public static final UUID TENANT = UUID.nameUUIDFromBytes("tenant:test".getBytes());
+
+  /** Steward operations in scenarios act as a named human, as they do through the API. */
+  public static final Actor ACTOR = new Actor(ActorType.HUMAN, "test-steward");
 
   public final InMemoryGraph graph = new InMemoryGraph();
   public final ResolutionEngine engine =

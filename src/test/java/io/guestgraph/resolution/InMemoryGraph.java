@@ -1,5 +1,6 @@
 package io.guestgraph.resolution;
 
+import io.guestgraph.domain.Actor;
 import io.guestgraph.domain.BlockKey;
 import io.guestgraph.domain.BlockKeyType;
 import io.guestgraph.domain.Guest;
@@ -279,6 +280,7 @@ public class InMemoryGraph implements GraphPort {
   public boolean negativeRuleBetween(
       UUID tenantId, Collection<UUID> recordsA, Collection<UUID> recordsB) {
     return negativeRules.stream()
+        .filter(NegativeMatchRule::isActive)
         .anyMatch(
             r ->
                 (recordsA.contains(r.recordA()) && recordsB.contains(r.recordB()))
@@ -287,8 +289,10 @@ public class InMemoryGraph implements GraphPort {
 
   @Override
   public void saveNegativeRule(NegativeMatchRule rule) {
+    // Mirrors the partial unique index: only an ACTIVE rule for the pair is a duplicate.
     boolean duplicate =
         negativeRules.stream()
+            .filter(NegativeMatchRule::isActive)
             .anyMatch(
                 r -> r.recordA().equals(rule.recordA()) && r.recordB().equals(rule.recordB()));
     if (!duplicate) {
@@ -298,11 +302,24 @@ public class InMemoryGraph implements GraphPort {
 
   @Override
   public void liftNegativeRulesBetween(
-      UUID tenantId, Collection<UUID> recordsA, Collection<UUID> recordsB) {
-    negativeRules.removeIf(
+      UUID tenantId, Collection<UUID> recordsA, Collection<UUID> recordsB, Actor actor) {
+    // Stamped, not removed — the override of a split is itself an audited decision (FR-016a).
+    negativeRules.replaceAll(
         r ->
-            (recordsA.contains(r.recordA()) && recordsB.contains(r.recordB()))
-                || (recordsB.contains(r.recordA()) && recordsA.contains(r.recordB())));
+            r.isActive()
+                    && ((recordsA.contains(r.recordA()) && recordsB.contains(r.recordB()))
+                        || (recordsB.contains(r.recordA()) && recordsA.contains(r.recordB())))
+                ? new NegativeMatchRule(
+                    r.id(),
+                    r.tenantId(),
+                    r.recordA(),
+                    r.recordB(),
+                    r.origin(),
+                    r.actor(),
+                    r.createdAt(),
+                    Instant.now(),
+                    actor)
+                : r);
   }
 
   @Override

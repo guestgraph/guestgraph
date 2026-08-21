@@ -257,9 +257,11 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
-        - name: offset
+        - name: cursor
           in: query
-          schema: { type: integer, minimum: 0, default: 0 }
+          required: false
+          schema: { type: string }
+          description: Opaque keyset cursor from a previous response's nextCursor (feature 003 migrated this endpoint off raw offsets).
       responses:
         "200":
           description: Review queue entries, oldest first
@@ -268,11 +270,15 @@ paths:
               schema:
                 type: object
                 required: [reviews, total]
+                # nextCursor added by feature 003 (keyset paging)
                 properties:
                   reviews:
                     type: array
                     items: { $ref: "#/components/schemas/MatchReview" }
                   total: { type: integer }
+                  nextCursor:
+                    type: [string, "null"]
+                    description: Opaque cursor for the next page, or null at the end.
         "401": { $ref: "#/components/responses/Problem" }
 
   /match-reviews/{reviewId}:

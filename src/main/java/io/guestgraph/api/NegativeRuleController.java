@@ -1,9 +1,11 @@
 package io.guestgraph.api;
 
+import io.guestgraph.auth.ActorResolver;
 import io.guestgraph.auth.TenantContext;
 import io.guestgraph.domain.NegativeMatchRule;
 import io.guestgraph.persistence.NegativeRuleService;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -21,11 +23,25 @@ import org.springframework.web.bind.annotation.RestController;
 public class NegativeRuleController {
 
   public record NegativeRuleDto(
-      UUID id, UUID recordA, UUID recordB, String origin, Instant createdAt) {
+      UUID id,
+      UUID recordA,
+      UUID recordB,
+      String origin,
+      ActorDto actor,
+      Instant createdAt,
+      Instant liftedAt,
+      ActorDto liftedActor) {
 
     static NegativeRuleDto of(NegativeMatchRule rule) {
       return new NegativeRuleDto(
-          rule.id(), rule.recordA(), rule.recordB(), rule.origin().name(), rule.createdAt());
+          rule.id(),
+          rule.recordA(),
+          rule.recordB(),
+          rule.origin().name(),
+          ActorDto.of(rule.actor()),
+          rule.createdAt(),
+          rule.liftedAt(),
+          ActorDto.of(rule.liftedActor()));
     }
   }
 
@@ -37,22 +53,26 @@ public class NegativeRuleController {
 
   @GetMapping
   public Map<String, Object> list(
+      @RequestParam(value = "includeLifted", defaultValue = "false") boolean includeLifted,
       @RequestParam(value = "limit", defaultValue = "50") int limit,
-      @RequestParam(value = "offset", defaultValue = "0") int offset) {
-    if (limit < 1 || limit > 200 || offset < 0) {
-      throw new BadRequestException("limit must be 1..200 and offset >= 0");
+      @RequestParam(value = "cursor", required = false) String cursor) {
+    if (limit < 1 || limit > 200) {
+      throw new BadRequestException("limit must be 1..200");
     }
-    NegativeRuleService.RulePage page = service.list(TenantContext.tenantId(), limit, offset);
-    return Map.of(
-        "rules", page.rules().stream().map(NegativeRuleDto::of).toList(),
-        "total", page.total());
+    NegativeRuleService.RulePage page =
+        service.list(TenantContext.tenantId(), includeLifted, limit, cursor);
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("rules", page.rules().stream().map(NegativeRuleDto::of).toList());
+    body.put("total", page.total());
+    body.put("nextCursor", page.nextCursor());
+    return body;
   }
 
   @DeleteMapping("/{ruleId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void lift(@PathVariable UUID ruleId) {
-    if (!service.delete(TenantContext.tenantId(), ruleId)) {
-      throw new NotFoundException("No do-not-merge rule " + ruleId + " in this tenant");
+    if (!service.lift(TenantContext.tenantId(), ruleId, ActorResolver.actor())) {
+      throw new NotFoundException("No active do-not-merge rule " + ruleId + " in this tenant");
     }
   }
 }

@@ -1,6 +1,6 @@
 package io.guestgraph.auth;
 
-import io.guestgraph.domain.Tenant;
+import io.guestgraph.domain.Credential;
 import io.guestgraph.persistence.TenantStore;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -45,26 +45,54 @@ public class ApiKeyFilter extends OncePerRequestFilter {
       unauthorized(response, "Missing " + API_KEY_HEADER + " header");
       return;
     }
-    Optional<Tenant> tenant = tenantStore.findByApiKeyHash(Sha256.hex(apiKey));
-    if (tenant.isEmpty()) {
+    Optional<Credential> credential = tenantStore.findCredentialByApiKeyHash(Sha256.hex(apiKey));
+    if (credential.isEmpty()) {
       unauthorized(response, "Unknown or revoked API key");
       return;
     }
-    TenantContext.set(tenant.get());
+    TenantContext.set(credential.get().tenant());
+    try {
+      ActorResolver.set(
+          ActorResolver.resolve(
+              credential.get().actorType(),
+              credential.get().actorName(),
+              request.getHeader(ActorResolver.ACTOR_TYPE_HEADER),
+              request.getHeader(ActorResolver.ACTOR_ID_HEADER)));
+    } catch (InvalidActorClaimException e) {
+      TenantContext.clear();
+      invalidActorClaim(response, e.getMessage());
+      return;
+    }
     try {
       chain.doFilter(request, response);
     } finally {
+      ActorResolver.clear();
       TenantContext.clear();
     }
   }
 
+  private void invalidActorClaim(HttpServletResponse response, String detail) throws IOException {
+    problem(
+        response,
+        HttpServletResponse.SC_BAD_REQUEST,
+        "invalid-actor-claim",
+        "Invalid actor claim",
+        detail);
+  }
+
   private void unauthorized(HttpServletResponse response, String detail) throws IOException {
-    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+    problem(response, HttpServletResponse.SC_UNAUTHORIZED, "unauthorized", "Unauthorized", detail);
+  }
+
+  private void problem(
+      HttpServletResponse response, int status, String type, String title, String detail)
+      throws IOException {
+    response.setStatus(status);
     response.setContentType("application/problem+json");
     Map<String, Object> problem = new LinkedHashMap<>();
-    problem.put("type", "https://guestgraph.io/problems/unauthorized");
-    problem.put("title", "Unauthorized");
-    problem.put("status", 401);
+    problem.put("type", "https://guestgraph.io/problems/" + type);
+    problem.put("title", title);
+    problem.put("status", status);
     problem.put("detail", detail);
     response.getWriter().write(mapper.writeValueAsString(problem));
   }

@@ -249,7 +249,11 @@ class ResolutionScenarioTest {
 
     UnmergeOperation.UnmergeResult result =
         new UnmergeOperation(fx.graph, fx.engine)
-            .unmerge(EngineFixture.TENANT, originalGuest, List.of(fx.recordId("r3")));
+            .unmerge(
+                EngineFixture.TENANT,
+                originalGuest,
+                List.of(fx.recordId("r3")),
+                EngineFixture.ACTOR);
 
     // The wrong record sits on its own guest now; the exclusion kept it from rejoining.
     fx.assertClusters(Set.of(Set.of("r1", "r2"), Set.of("r3")));
@@ -281,7 +285,10 @@ class ResolutionScenarioTest {
 
     new UnmergeOperation(fx.graph, fx.engine)
         .unmerge(
-            EngineFixture.TENANT, all.guestId(), List.of(fx.recordId("w1"), fx.recordId("w2")));
+            EngineFixture.TENANT,
+            all.guestId(),
+            List.of(fx.recordId("w1"), fx.recordId("w2")),
+            EngineFixture.ACTOR);
 
     // Both detached records share wrong@example.com → they regroup as ONE new guest.
     fx.assertClusters(Set.of(Set.of("keep"), Set.of("w1", "w2")));
@@ -295,7 +302,11 @@ class ResolutionScenarioTest {
     assertThatThrownBy(
             () ->
                 new UnmergeOperation(fx.graph, fx.engine)
-                    .unmerge(EngineFixture.TENANT, only.guestId(), List.of(fx.recordId("r1"))))
+                    .unmerge(
+                        EngineFixture.TENANT,
+                        only.guestId(),
+                        List.of(fx.recordId("r1")),
+                        EngineFixture.ACTOR))
         .isInstanceOf(InvalidUnmergeException.class)
         .hasMessageContaining("single source record");
   }
@@ -310,7 +321,11 @@ class ResolutionScenarioTest {
     assertThatThrownBy(
             () ->
                 new UnmergeOperation(fx.graph, fx.engine)
-                    .unmerge(EngineFixture.TENANT, guest.guestId(), List.of(fx.recordId("other"))))
+                    .unmerge(
+                        EngineFixture.TENANT,
+                        guest.guestId(),
+                        List.of(fx.recordId("other")),
+                        EngineFixture.ACTOR))
         .isInstanceOf(InvalidUnmergeException.class)
         .hasMessageContaining("not linked");
   }
@@ -330,7 +345,8 @@ class ResolutionScenarioTest {
             .unmerge(
                 EngineFixture.TENANT,
                 guest.guestId(),
-                List.of(fx.recordId("r1"), fx.recordId("r2")));
+                List.of(fx.recordId("r1"), fx.recordId("r2")),
+                EngineFixture.ACTOR);
 
     assertThat(result.remainingGuestId()).isNull();
     // With the crowded email still over threshold, every replayed record parks rather
@@ -378,7 +394,7 @@ class ResolutionScenarioTest {
 
     MatchReview decided =
         new ReviewDecisionOperation(fx.graph, fx.engine)
-            .decide(EngineFixture.TENANT, reviewId, true);
+            .decide(EngineFixture.TENANT, reviewId, true, EngineFixture.ACTOR);
 
     assertThat(decided.status()).isEqualTo(ReviewStatus.CONFIRMED);
     assertThat(decided.decidedAt()).isNotNull();
@@ -408,7 +424,7 @@ class ResolutionScenarioTest {
 
     MatchReview decided =
         new ReviewDecisionOperation(fx.graph, fx.engine)
-            .decide(EngineFixture.TENANT, reviewId, false);
+            .decide(EngineFixture.TENANT, reviewId, false, EngineFixture.ACTOR);
 
     assertThat(decided.status()).isEqualTo(ReviewStatus.REJECTED);
     fx.assertClusters(Set.of(Set.of("r1"), Set.of("r2")));
@@ -424,9 +440,10 @@ class ResolutionScenarioTest {
     ResolutionOutcome parked = fx.record("r2").email("family@example.com").resolve();
     UUID reviewId = parked.pendingReviewIds().getFirst();
     ReviewDecisionOperation operation = new ReviewDecisionOperation(fx.graph, fx.engine);
-    operation.decide(EngineFixture.TENANT, reviewId, false);
+    operation.decide(EngineFixture.TENANT, reviewId, false, EngineFixture.ACTOR);
 
-    assertThatThrownBy(() -> operation.decide(EngineFixture.TENANT, reviewId, true))
+    assertThatThrownBy(
+            () -> operation.decide(EngineFixture.TENANT, reviewId, true, EngineFixture.ACTOR))
         .isInstanceOf(ReviewAlreadyDecidedException.class);
     // The rejection stands: records remain separate.
     fx.assertClusters(Set.of(Set.of("r1"), Set.of("r2")));
@@ -445,7 +462,8 @@ class ResolutionScenarioTest {
             .unmerge(
                 EngineFixture.TENANT,
                 guest.guestId(),
-                List.of(fx.recordId("r3"), fx.recordId("r3")));
+                List.of(fx.recordId("r3"), fx.recordId("r3")),
+                EngineFixture.ACTOR);
 
     fx.assertClusters(Set.of(Set.of("r1", "r2"), Set.of("r3")));
     assertThat(result.detachedRecordToGuest()).hasSize(1);
@@ -460,7 +478,8 @@ class ResolutionScenarioTest {
     fx.record("r1").email("shared@example.com").resolve();
     ResolutionOutcome guest = fx.record("r2").email("shared@example.com").resolve();
     new UnmergeOperation(fx.graph, fx.engine)
-        .unmerge(EngineFixture.TENANT, guest.guestId(), List.of(fx.recordId("r2")));
+        .unmerge(
+            EngineFixture.TENANT, guest.guestId(), List.of(fx.recordId("r2")), EngineFixture.ACTOR);
     fx.assertClusters(Set.of(Set.of("r1"), Set.of("r2")));
 
     ResolutionOutcome fresh = fx.record("r3").email("shared@example.com").resolve();
@@ -478,7 +497,8 @@ class ResolutionScenarioTest {
     ResolutionOutcome guest = fx.record("r2").email("shared@example.com").resolve();
 
     new UnmergeOperation(fx.graph, fx.engine)
-        .unmerge(EngineFixture.TENANT, guest.guestId(), List.of(fx.recordId("r2")));
+        .unmerge(
+            EngineFixture.TENANT, guest.guestId(), List.of(fx.recordId("r2")), EngineFixture.ACTOR);
 
     List<MergeEvent> chain =
         new ExplainOperation(fx.graph).explain(EngineFixture.TENANT, guest.guestId());

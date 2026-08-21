@@ -1,5 +1,6 @@
 package io.guestgraph.resolution;
 
+import io.guestgraph.domain.Actor;
 import io.guestgraph.domain.MatchReview;
 import io.guestgraph.domain.MergeEvent;
 import java.util.List;
@@ -31,16 +32,16 @@ public class GraphMutationService {
   }
 
   @Transactional
-  public MatchReview decideReview(UUID tenantId, UUID reviewId, boolean confirm) {
+  public MatchReview decideReview(UUID tenantId, UUID reviewId, boolean confirm, Actor actor) {
     tenantLock.acquire(tenantId);
-    return reviewDecisionOperation.decide(tenantId, reviewId, confirm);
+    return reviewDecisionOperation.decide(tenantId, reviewId, confirm, actor);
   }
 
   @Transactional
   public UnmergeOperation.UnmergeResult unmerge(
-      UUID tenantId, UUID guestId, List<UUID> sourceRecordIds) {
+      UUID tenantId, UUID guestId, List<UUID> sourceRecordIds, Actor actor) {
     tenantLock.acquire(tenantId);
-    return unmergeOperation.unmerge(tenantId, guestId, sourceRecordIds);
+    return unmergeOperation.unmerge(tenantId, guestId, sourceRecordIds, actor);
   }
 
   @Transactional(readOnly = true)

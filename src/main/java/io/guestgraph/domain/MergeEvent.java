@@ -21,4 +21,6 @@ public record MergeEvent(
     BigDecimal confidence,
     Map<String, Object> evidence,
     List<UUID> excludedGuestIds,
+    /** Who caused this decision. {@link Actor#unattributed()} for events predating FR-011. */
+    Actor actor,
     Instant createdAt) {}

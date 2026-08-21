@@ -120,7 +120,7 @@ Derived per guest by `AssociationDeriver`:
 | successorGuestId | for `ENDED` only, and only when exactly one guest holds that role in the current roster; otherwise null (FR-007) |
 | currentObservation | the current-roster observation for `CURRENT`; the guest's newest own observation for `ENDED` |
 | observationCount | observations of this object and role across all versions and guests |
-| businessStart, businessEnd | from the current-roster observation |
+| businessStart, businessEnd | from the observation the entry shows: the current-roster one while `CURRENT`, the guest's own newest one once `ENDED` — an ended entry reports the dates as they stood when that guest held the booking |
 | ordering | `business_start`, falling back to the observation's `record_timestamp`/`received_at`; ties broken by objectId for stable paging (FR-004a) |
 
 **Invariants** the deriver must hold, each a scenario test:

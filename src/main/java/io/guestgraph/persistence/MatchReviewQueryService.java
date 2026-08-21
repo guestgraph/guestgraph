@@ -1,5 +1,6 @@
 package io.guestgraph.persistence;
 
+import io.guestgraph.api.Cursor;
 import io.guestgraph.domain.MatchReview;
 import io.guestgraph.domain.ReviewStatus;
 import io.guestgraph.persistence.mapper.DomainMappers;
@@ -14,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class MatchReviewQueryService {
 
-  public record ReviewPage(List<MatchReview> reviews, int total) {}
+  public record ReviewPage(List<MatchReview> reviews, int total, String nextCursor) {}
 
   private final MatchReviewRepo repo;
   private final DomainMappers mappers;
@@ -24,9 +25,24 @@ public class MatchReviewQueryService {
     this.mappers = mappers;
   }
 
-  public ReviewPage list(UUID tenantId, ReviewStatus status, int limit, int offset) {
+  public ReviewPage list(UUID tenantId, ReviewStatus status, int limit, String cursor) {
+    Cursor.Key after = cursor == null ? null : Cursor.decode(cursor);
     List<MatchReview> reviews =
-        mappers.toDomainReviews(repo.list(tenantId, status.name(), limit, offset));
-    return new ReviewPage(reviews, repo.count(tenantId, status));
+        mappers.toDomainReviews(
+            repo.list(
+                tenantId,
+                status.name(),
+                after == null ? null : after.time(),
+                after == null ? null : after.uuid(),
+                limit + 1));
+    return page(reviews, limit, repo.count(tenantId, status));
+  }
+
+  private ReviewPage page(List<MatchReview> fetched, int limit, int total) {
+    boolean more = fetched.size() > limit;
+    List<MatchReview> items = more ? fetched.subList(0, limit) : fetched;
+    String next =
+        more ? Cursor.encode(items.getLast().createdAt(), items.getLast().id().toString()) : null;
+    return new ReviewPage(List.copyOf(items), total, next);
   }
 }

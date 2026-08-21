@@ -1,5 +1,6 @@
 package io.guestgraph.resolution;
 
+import io.guestgraph.domain.Actor;
 import io.guestgraph.domain.BlockKey;
 import io.guestgraph.domain.Guest;
 import io.guestgraph.domain.IdentifierQualityRule;
@@ -227,6 +228,9 @@ public class ResolutionEngine {
               BigDecimal.ONE,
               Map.of("identifiers", identifiersAsMaps(record.identifiers())),
               List.of(),
+              // FR-012: the engine takes no actor parameter, so automatic resolution has no
+              // path by which it could be attributed to a person.
+              Actor.system(strategy.name()),
               Instant.now());
       graph.saveEvent(event);
       graph.linkRecord(tenantId, record.id(), guest.id(), event.id());
@@ -342,6 +346,7 @@ public class ResolutionEngine {
         confidence,
         evidence,
         List.of(),
+        Actor.system(String.join(",", matcherNames)),
         Instant.now());
   }
 

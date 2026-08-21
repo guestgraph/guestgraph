@@ -2,6 +2,8 @@
 %% Do not edit by hand — CI fails on drift. Regenerate: ./scripts/regen-er.sh
 erDiagram
     api_key {
+        text actor_name 
+        text actor_type 
         timestamp_with_time_zone created_at 
         uuid id PK 
         text key_hash UK 
@@ -55,6 +57,8 @@ erDiagram
 
     merge_event {
         jsonb absorbed_guest_ids 
+        text actor_id 
+        text actor_type 
         numeric confidence 
         timestamp_with_time_zone created_at 
         jsonb evidence 
@@ -68,12 +72,17 @@ erDiagram
     }
 
     negative_match_rule {
+        text actor_id 
+        text actor_type 
         timestamp_with_time_zone created_at 
         uuid id PK 
+        text lifted_actor_id 
+        text lifted_actor_type 
+        timestamp_with_time_zone lifted_at 
         text origin 
-        uuid record_a FK,UK 
-        uuid record_b FK,UK 
-        uuid tenant_id UK 
+        uuid record_a FK 
+        uuid record_b FK 
+        uuid tenant_id 
     }
 
     record_block_key {
@@ -90,6 +99,21 @@ erDiagram
         uuid tenant_id 
         text type UK 
         text value_normalized UK 
+    }
+
+    record_object {
+        timestamp_with_time_zone business_end 
+        timestamp_with_time_zone business_start 
+        timestamp_with_time_zone created_at 
+        uuid id PK 
+        text object_id 
+        integer object_position 
+        text object_role 
+        text object_type 
+        timestamp_with_time_zone object_version 
+        uuid source_record_id FK,UK 
+        uuid source_system_id FK 
+        uuid tenant_id 
     }
 
     resolution_link {
@@ -146,6 +170,8 @@ erDiagram
     negative_match_rule }o--|| source_record : "record_b"
     record_block_key }o--|| source_record : "source_record_id"
     record_identifier }o--|| source_record : "source_record_id"
+    record_object }o--|| source_record : "source_record_id"
+    record_object }o--|| source_system : "source_system_id"
     resolution_link }o--|| source_record : "source_record_id"
     source_record }o--|| source_system : "source_system_id"
     source_record }o--|| tenant : "tenant_id"

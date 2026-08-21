@@ -1,5 +1,6 @@
 package io.guestgraph.persistence.entity;
 
+import io.guestgraph.domain.ActorType;
 import io.guestgraph.domain.MergeEventKind;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -44,6 +45,11 @@ public class MergeEventEntity {
   @JdbcTypeCode(SqlTypes.JSON)
   private List<UUID> excludedGuestIds;
 
+  @Enumerated(EnumType.STRING)
+  private ActorType actorType;
+
+  private String actorId;
+
   private Instant createdAt;
 
   protected MergeEventEntity() {}
@@ -59,6 +65,8 @@ public class MergeEventEntity {
       BigDecimal confidence,
       Map<String, Object> evidence,
       List<UUID> excludedGuestIds,
+      ActorType actorType,
+      String actorId,
       Instant createdAt) {
     this.id = id;
     this.tenantId = tenantId;
@@ -70,6 +78,8 @@ public class MergeEventEntity {
     this.confidence = confidence;
     this.evidence = evidence;
     this.excludedGuestIds = excludedGuestIds;
+    this.actorType = actorType;
+    this.actorId = actorId;
     this.createdAt = createdAt;
   }
 
@@ -111,6 +121,14 @@ public class MergeEventEntity {
 
   public List<UUID> getExcludedGuestIds() {
     return excludedGuestIds;
+  }
+
+  public ActorType getActorType() {
+    return actorType;
+  }
+
+  public String getActorId() {
+    return actorId;
   }
 
   public Instant getCreatedAt() {

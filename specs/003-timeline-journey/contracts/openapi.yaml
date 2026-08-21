@@ -147,6 +147,27 @@ components:
       in: header
       name: X-API-Key
 
+  parameters:
+    # Accepted on every steward operation: review decisions, unmerge, and negative-rule lifts.
+    ActorId:
+      name: X-Actor-Id
+      in: header
+      required: false
+      schema: { type: string }
+      description: >
+        Names the individual acting behind a shared credential. Attribution only — it is
+        caller-asserted, unverified, and authorises nothing. Defaults to the credential's own
+        actor name.
+    ActorType:
+      name: X-Actor-Type
+      in: header
+      required: false
+      schema: { type: string, enum: [HUMAN, AGENT] }
+      description: >
+        Must match what the credential is registered as, if sent at all. A mismatch is refused
+        with an RFC 9457 400 and records nothing — the credential is the trust boundary, so a
+        request can never claim a stronger actor type than it was issued.
+
   responses:
     Problem:
       description: RFC 9457 problem details

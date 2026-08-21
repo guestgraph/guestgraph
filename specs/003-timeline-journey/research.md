@@ -79,10 +79,13 @@ the current-roster lookup a single-table index scan instead of a join back to `s
 
 **Decision**: Two tenant-scoped JPQL queries feed one pure-JVM deriver.
 
-1. Query A: the distinct objects this guest has any observation of (via `resolution_link` →
-   `record_object`).
-2. Query B: every observation of those objects — regardless of which guest it resolved to —
-   joined to its resolution link.
+1. ~~Query A: the distinct objects this guest has any observation of.~~ **Collapsed into one
+   statement during implementation**: an `EXISTS` correlation selects the objects the guest
+   appears on, so there is no window in which a concurrent ingest lands between two reads and
+   hands the deriver a torn roster. Same row volume, one round trip instead of two.
+2. Query B — now the only query: every observation of those objects, regardless of which guest it
+   resolved to, joined to its resolution link and ordered so the observation representing an
+   association is deterministic.
 3. `AssociationDeriver` (pure, in `io.guestgraph.timeline`) groups by object, takes the highest
    `object_version` as the current roster, emits one association per (object, role, guest) present
    in it, marks guests present only in older versions as past, resolves the successor when exactly

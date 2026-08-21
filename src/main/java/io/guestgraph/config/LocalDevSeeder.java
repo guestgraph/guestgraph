@@ -38,8 +38,8 @@ public class LocalDevSeeder implements CommandLineRunner {
         .update();
     jdbc.sql(
             """
-                INSERT INTO api_key (id, tenant_id, key_hash, label, created_at)
-                VALUES (:id, :tenantId, :keyHash, 'local-dev', now())
+                INSERT INTO api_key (id, tenant_id, key_hash, label, created_at, actor_type, actor_name)
+                VALUES (:id, :tenantId, :keyHash, 'local-dev', now(), 'HUMAN', 'local-dev')
                 ON CONFLICT (key_hash) DO NOTHING
                 """)
         .param("id", UUID.nameUUIDFromBytes("api-key:demo".getBytes()))

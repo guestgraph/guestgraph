@@ -1,5 +1,6 @@
 package io.guestgraph.persistence.entity;
 
+import io.guestgraph.domain.ActorType;
 import io.guestgraph.domain.NegativeRuleOrigin;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -9,11 +10,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
-import org.hibernate.annotations.Immutable;
 
-/** A steward split that sticks (R2-1); created whole, removed whole — never mutated. */
+/**
+ * A steward split that sticks (R2-1). Created whole; the only permitted change is being lifted,
+ * which stamps who overrode the split and when (FR-016a) — so unlike the other companions this one
+ * cannot be {@code @Immutable}.
+ */
 @Entity
-@Immutable
 @Table(name = "negative_match_rule")
 public class NegativeMatchRuleEntity {
 
@@ -30,7 +33,19 @@ public class NegativeMatchRuleEntity {
   @Enumerated(EnumType.STRING)
   private NegativeRuleOrigin origin;
 
+  @Enumerated(EnumType.STRING)
+  private ActorType actorType;
+
+  private String actorId;
+
   private Instant createdAt;
+
+  private Instant liftedAt;
+
+  @Enumerated(EnumType.STRING)
+  private ActorType liftedActorType;
+
+  private String liftedActorId;
 
   protected NegativeMatchRuleEntity() {}
 
@@ -40,12 +55,16 @@ public class NegativeMatchRuleEntity {
       UUID recordA,
       UUID recordB,
       NegativeRuleOrigin origin,
+      ActorType actorType,
+      String actorId,
       Instant createdAt) {
     this.id = id;
     this.tenantId = tenantId;
     this.recordA = recordA;
     this.recordB = recordB;
     this.origin = origin;
+    this.actorType = actorType;
+    this.actorId = actorId;
     this.createdAt = createdAt;
   }
 
@@ -63,6 +82,26 @@ public class NegativeMatchRuleEntity {
 
   public UUID getRecordB() {
     return recordB;
+  }
+
+  public ActorType getActorType() {
+    return actorType;
+  }
+
+  public String getActorId() {
+    return actorId;
+  }
+
+  public Instant getLiftedAt() {
+    return liftedAt;
+  }
+
+  public ActorType getLiftedActorType() {
+    return liftedActorType;
+  }
+
+  public String getLiftedActorId() {
+    return liftedActorId;
   }
 
   public NegativeRuleOrigin getOrigin() {

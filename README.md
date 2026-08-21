@@ -11,6 +11,7 @@ Guest data in hospitality is scattered — PMS, POS, booking engines, loyalty pr
 - **Explain** every merge — ask *"why are these records one guest?"* and get the full decision chain
 - **Unmerge** safely when resolution got it wrong — every merge is reversible
 - **Query** unified golden profiles and their source records, per tenant
+- **Timeline** what a guest currently *has* — reservations and other source objects, resolved to the person who holds them now
 
 ## How it fits together
 
@@ -63,12 +64,40 @@ curl -s -X POST localhost:8080/api/v1/records \
 API surface (`/api/v1`, per-tenant `X-API-Key`, errors are RFC 9457 problem details):
 `POST /source-systems` · `POST /records` · `GET /guests/{id}` · `GET /guests/{id}/records` ·
 `GET /guests/{id}/explain` · `POST /guests/{id}/unmerge` · `GET /guests?identifier=…` ·
+`GET /guests/{id}/timeline` · `GET /source-objects/{system}/{type}/{id}` ·
 `GET /match-reviews` · `POST /match-reviews/{id}` · `GET|PUT /config/matching` ·
 `GET|POST|DELETE /config/identifier-rules` · `GET|DELETE /negative-rules` — contracts in
-[`specs/001-core-identity-resolution/contracts/`](specs/001-core-identity-resolution/contracts/openapi.yaml)
-and [`specs/002-probabilistic-matching/contracts/`](specs/002-probabilistic-matching/contracts/openapi.yaml),
+[`specs/001-core-identity-resolution/contracts/`](specs/001-core-identity-resolution/contracts/openapi.yaml),
+[`specs/002-probabilistic-matching/contracts/`](specs/002-probabilistic-matching/contracts/openapi.yaml)
+and [`specs/003-timeline-journey/contracts/`](specs/003-timeline-journey/contracts/openapi.yaml),
 walkthroughs in the matching `quickstart.md` files. A running instance serves the
 complete merged document at `GET /api-docs` (no API key required).
+
+### Submitting mutable, multi-person source objects
+
+A PMS reservation is mutable, carries several people, and its webhooks retry. To make such
+observations order correctly, connectors follow one convention:
+
+- **One observation per person per object version.** A three-person reservation version emits
+  three records; `sourceObject.role` (plus `position` for indexed roles) distinguishes them so no
+  two collide on the `(sourceSystem, externalKey)` dedup key.
+- **The version is the source object's own last-modified instant** — never the connector's clock
+  and never a webhook event id. Derived from source state alone, it makes retries, duplicate change
+  pings, and full re-syncs naturally idempotent. `recordTimestamp` must equal it, so survivorship
+  and timeline supersession order observations identically.
+- **Emit the complete roster, and only when people changed.** When any person's data or the guest
+  list changed, emit every person on that version — a partial version would read as a booking that
+  lost guests. When an edit touches no person at all (room, rate, dates), emit nothing: that is
+  where the noise reduction is, and emitting anyway inflates the observation count that feeds the
+  identifier-sharing review threshold, which can park a normal guest for review.
+- **Keep booking-level contact data out of the person fields.** An agency phone or property email
+  belongs to the reservation, not the guest; nest it inside `payload` (extraction only reads the
+  documented top-level person fields) so it never becomes a guest identifier. A persistent
+  non-personal identifier on a reassigned reservation would transitively merge different people.
+
+Persons are never matched across versions — the newest version's roster simply *is* who is on the
+object. That is what lets sources with entity-less persons be handled without guessing, and why
+removing one of two additional guests does not report the other as their replacement.
 
 ## Developing
 
@@ -99,9 +128,9 @@ From the first tagged release on, migrations are additive-only.
 
 ## Roadmap
 
-1. 🚧 **Core** — identity resolution engine (deterministic, probabilistic-ready), guest graph, REST API *(current)*
-2. **Probabilistic matching** — fuzzy/ML resolution behind the same strategy interface, with review queue
-3. **Timeline** — unified per-guest event timeline / journey
+1. ✅ **Core** — identity resolution engine (deterministic, probabilistic-ready), guest graph, REST API
+2. ✅ **Probabilistic matching** — fuzzy/ML resolution behind the same strategy interface, with review queue
+3. 🚧 **Timeline** — per-guest business-object associations, attributed decisions *(current)*
 4. **Connectors** — ingest from real PMS/POS/booking systems
 
 ## License

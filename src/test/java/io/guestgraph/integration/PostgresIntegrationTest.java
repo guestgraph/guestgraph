@@ -54,7 +54,7 @@ public abstract class PostgresIntegrationTest {
             """
                 TRUNCATE match_review, negative_match_rule, identifier_quality_rule,
                          resolution_link, identifier, merge_event, record_identifier,
-                         record_block_key, source_record, guest, source_system
+                         record_block_key, record_object, source_record, guest, source_system
                 """)
         .update();
     seedTenant(TENANT_A, "acme", TENANT_A_KEY);
@@ -75,8 +75,8 @@ public abstract class PostgresIntegrationTest {
         .update();
     jdbc.sql(
             """
-                        INSERT INTO api_key (id, tenant_id, key_hash, label)
-                        VALUES (:id, :tenantId, :keyHash, 'test')
+                        INSERT INTO api_key (id, tenant_id, key_hash, label, actor_type, actor_name)
+                        VALUES (:id, :tenantId, :keyHash, 'test', 'HUMAN', 'test-steward')
                         ON CONFLICT (key_hash) DO NOTHING
                         """)
         .param("id", UUID.nameUUIDFromBytes(("key:" + slug).getBytes()))

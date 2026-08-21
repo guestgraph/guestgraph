@@ -16,21 +16,29 @@ public interface MatchReviewRepo extends Repository<MatchReviewEntity, UUID> {
   @Query("select mr from MatchReviewEntity mr where mr.tenantId = :tenantId and mr.id = :id")
   Optional<MatchReviewEntity> findReview(@Param("tenantId") UUID tenantId, @Param("id") UUID id);
 
-  /** Native for exact LIMIT/OFFSET paging (the API contract exposes raw offsets). */
+  /**
+   * Keyset paging on (created_at, id), the order {@code match_review_queue_idx} already provides —
+   * a seek rather than the scan-and-discard {@code OFFSET} pays on deep pages. It also fixes a real
+   * wart: under offsets, reviews decided mid-traversal shift the remaining rows and the client
+   * silently skips entries.
+   */
   @Query(
       nativeQuery = true,
       value =
           """
             SELECT * FROM match_review
             WHERE tenant_id = :tenantId AND status = :status
+              AND (CAST(:afterCreatedAt AS timestamptz) IS NULL
+                   OR (created_at, id) > (CAST(:afterCreatedAt AS timestamptz), CAST(:afterId AS uuid)))
             ORDER BY created_at, id
-            LIMIT :limit OFFSET :offset
+            LIMIT :limit
             """)
   List<MatchReviewEntity> list(
       @Param("tenantId") UUID tenantId,
       @Param("status") String status,
-      @Param("limit") int limit,
-      @Param("offset") int offset);
+      @Param("afterCreatedAt") Instant afterCreatedAt,
+      @Param("afterId") UUID afterId,
+      @Param("limit") int limit);
 
   @Query(
       "select count(mr) from MatchReviewEntity mr where mr.tenantId = :tenantId and mr.status = :status")

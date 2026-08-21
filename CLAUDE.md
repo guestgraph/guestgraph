@@ -51,6 +51,35 @@ implement `ResolutionStrategy` — do not redesign the engine.
 - Until the first release, `V1__core_schema.sql`/`V2__*.sql` may be edited in place;
   local Flyway checksum mismatch → `docker compose down -v`. Additive-only after tagging.
 
+## Documentation ownership (prevents drift)
+
+Every fact has **one owning file**; everywhere else links to it. The ambiguity about who owns
+what is what causes drift, so the map is explicit:
+
+| Fact | Owner |
+|---|---|
+| Constants, thresholds, algorithms | the code |
+| Matching behaviour | `docs/matching.md`, sectioned per matcher version |
+| One slice's decisions | `specs/NNN-*/` — **frozen at merge** |
+| Cross-slice decisions, roadmap, deferred work | `docs/roadmap-notes.md` |
+| API surface | `specs/*/contracts/openapi.yaml` |
+| Why a reader should care | `README.md` — concepts, never values |
+
+**The edit test.** Before writing a number, threshold, or algorithm name into prose, ask: *if
+this changes, how many files must I touch?* More than one → link instead of restating. This is
+why the README describes the weighted feature vector without naming a single weight.
+
+**Specs are frozen history.** A merged spec records what was decided *then*. Never retro-edit
+one; corrections and amendments go forward into `docs/roadmap-notes.md` or the owning doc —
+slice 3 amended R4-1 there rather than rewriting slice 2's spec.
+
+**`docs/matching.md` is append-only.** Merge events permanently record the `matcherName` that
+decided them, so a new matcher version gets a new section and the old one stays readable.
+
+**A second repository links, never restates.** The org profile at `guestgraph/.github` once
+drifted to "Core in development" while two slices had shipped, because it restated a roadmap
+living here. No CI in one repo can catch that.
+
 ## Process
 
 - Slices follow `/speckit-specify` → `plan` → `tasks` → `implement` on a `NNN-*` branch;

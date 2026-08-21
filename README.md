@@ -19,26 +19,25 @@ Identity resolution is a **layered confidence model**. Each layer decides only w
 entitled to decide and hands the rest upward, and every layer's decisions are explainable and
 reversible:
 
-1. **Deterministic identifiers** — a shared email, phone, loyalty id, or ID document merges at confidence 1.0
+1. **Deterministic identifiers** — a shared email, phone, loyalty id, or ID document merges at full confidence
 2. **Probabilistic scoring** — merges only above a threshold the tenant chose; otherwise it queues for a human
 3. **A human steward** — the final word, and their splits stick: an unmerge writes a persistent do-not-merge rule that new evidence cannot silently cross
 
-Probabilistic matching works in two stages, using two different algorithms because the stages
-need different answers. **Blocking** finds candidates that share no identifier at all — a
-database index can only answer *equal*, so name phonetics (Double Metaphone) collapse Müller,
-Mueller, and Miller onto one key. **Scoring** then grades each candidate 0–1 with
-Jaro-Winkler string similarity over a weighted feature vector (name .45, birthdate .25, phone
-.15, email .10, address .05), damped when few signals were observed and heavily penalised when
-birthdates conflict — different birthdates are evidence of *different people*, and that
-outweighs a strong name match.
+Probabilistic matching works in two stages, because they need different kinds of answer.
+**Blocking** finds candidates that share no identifier at all — a database index can only answer
+*equal*, so name phonetics collapse spelling variants onto one key. **Scoring** then grades each
+candidate on a weighted feature vector — name, birthdate, phone, email, address — damped when
+few signals were observed and heavily penalised when birthdates conflict, because different
+birthdates are evidence of *different people* and that outweighs a strong name match.
 
-**Automatic fuzzy merging ships off.** The auto-merge threshold defaults to 1.0 and fuzzy scores
-are capped at 0.999, so the auto-merge band is provably empty until a tenant explicitly lowers
-it. Out of the box, probabilistic matching is a suggestion engine: it surfaces the duplicates
-exact matching cannot see, with a per-signal breakdown showing why, and a human decides.
+**Automatic fuzzy merging ships off.** Out of the box no fuzzy score can reach the auto-merge
+threshold, so probabilistic matching is a suggestion engine: it surfaces the duplicates exact
+matching cannot see, shows a per-signal breakdown of why, and a human decides. Lowering the
+threshold is an explicit act of trust — and reversible.
 
-Full reference — blocking keys, weights, band semantics, worked examples, and the known recall
-limits — in [`docs/matching.md`](docs/matching.md).
+Every value behind this — blocking keys, weights, thresholds, band semantics, worked examples,
+and the known recall limits — is in [`docs/matching.md`](docs/matching.md), which is the single
+place they are defined.
 
 ## How it fits together
 

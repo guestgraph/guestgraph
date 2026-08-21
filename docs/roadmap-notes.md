@@ -27,6 +27,29 @@ replacement:
   R4-1's emit-on-change rule removes most noise; if growth ever matters, add a
   retention/compaction policy for superseded observations that preserves the
   MergeEvent audit chain.
+- **R-X5 The guest id as an external reference (was: a stable primary key)** — the point
+  of a golden profile is that other systems can hold its `guestId` as *the* authoritative
+  reference for a person. Today they cannot: a merge deletes the absorbed guest
+  (`ResolutionEngine.execute` → `deleteGuest`) and `GET /guests/{absorbedId}` then returns a
+  bare 404. The reference breaks on exactly the event this product exists to produce. An
+  unmerge that empties a guest retires an id the same way (`UnmergeOperation`), so the
+  mapping is not always 1:1.
+
+  Observed, not inferred: ingest two records that resolve separately, then one carrying both
+  identifiers. The merge reports `MERGED`, and `GET /guests/{absorbedId}` answers
+  `404 {"detail":"No guest … in this tenant"}` — as if the person had never existed.
+
+  Nothing is lost — `merge_event` is append-only and records both the survivor (`guest_id`)
+  and `absorbed_guest_ids`, so the answer is already stored. What is missing is a query that
+  walks it. Needed: retired ids resolve instead of 404ing, e.g. `GET /guests/{id}` returning
+  `200 {"status":"MERGED","currentGuestId":…,"mergedAt":…}` — an HTTP-shaped redirect for
+  identity — following merge chains transitively (X→Y→Z), and returning the several current
+  ids when an unmerge fanned one out. Until this exists, integrators must be told plainly
+  that a stored `guestId` can dangle, because the failure is silent and their foreign key
+  looks fine right up until it doesn't.
+
+  Cheap, self-contained, and it changes what GuestGraph *is* to an integrator: not a tool
+  that de-duplicates a report, but the system of record for identity across the estate.
 
 ## Slice 2 — Probabilistic matching (additions) — ✅ consumed by specs/002-probabilistic-matching
 
@@ -123,6 +146,14 @@ The original sketch:
   supersession is a view, not a deletion).
 
 ## Slice 4 — Connectors
+
+**Consume R-X5 with this slice.** Connectors are the first real holders of a `guestId`: writing
+one back into a PMS or CRM is what makes GuestGraph the system of record rather than a report.
+That write-back is unsafe until a retired id resolves instead of 404ing, because the reference
+breaks precisely when a merge happens — and a connector cannot tell that it broke. Either build
+the resolution endpoint in this slice, or state the constraint in the connector contract so no
+integrator stores an id believing it is stable.
+
 
 ### R4-1: externalKey convention for mutable, multi-person source objects (Apaleo pattern) — contract published by specs/003-timeline-journey; connectors remain slice 4
 

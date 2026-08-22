@@ -86,4 +86,4 @@ living here. No CI in one repo can catch that.
   roadmap-notes (`docs/roadmap-notes.md`) feed each slice's spec.
 - TDD is mandatory for engine logic: failing scenario tests first, pure JVM.
 - Never mention closed-source predecessor projects in this repo, its docs, or commits.
-- Commits happen when Rob asks; suggest messages, don't auto-commit.
+- Commits happen when the user asks; suggest messages, don't auto-commit.

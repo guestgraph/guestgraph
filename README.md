@@ -1,4 +1,4 @@
-# GuestGraph
+# GuestGraph — Engine
 
 **The open-source guest identity graph.**
 

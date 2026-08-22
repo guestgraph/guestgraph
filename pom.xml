@@ -12,9 +12,9 @@
   </parent>
 
   <groupId>io.guestgraph</groupId>
-  <artifactId>guestgraph</artifactId>
+  <artifactId>engine</artifactId>
   <version>0.1.0-SNAPSHOT</version>
-  <name>guestgraph</name>
+  <name>GuestGraph Engine</name>
   <description>Open-source guest identity graph — core identity resolution service</description>
 
   <licenses>
